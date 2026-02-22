@@ -344,10 +344,13 @@ export function sessionType(s: AttendanceSession): SessionType {
   return 'past';
 }
 
+export type AttendanceEventType = 'In Person' | 'Webinar';
+
 export interface AttendanceEvent {
   id: string;
   course: string;
   trade: 'Gas Engineering' | 'Electrical' | 'Plumbing';
+  eventType: AttendanceEventType;
   dateRange: string;
   time: string;
   totalSessions: number;
@@ -392,6 +395,7 @@ export const attendanceEvents: AttendanceEvent[] = [
     id: 'ev0',
     course: 'Introduction to Gas Safety',
     trade: 'Gas Engineering',
+    eventType: 'In Person',
     dateRange: '27 Jan – 14 Feb 2026',
     time: '09:00 – 17:00',
     totalSessions: 3,
@@ -420,6 +424,7 @@ export const attendanceEvents: AttendanceEvent[] = [
     id: 'ev1',
     course: 'Gas Safety Fundamentals',
     trade: 'Gas Engineering',
+    eventType: 'In Person',
     dateRange: '10 Feb – 28 Feb 2026',
     time: '09:00 – 17:00',
     totalSessions: 6,
@@ -464,6 +469,7 @@ export const attendanceEvents: AttendanceEvent[] = [
     id: 'ev2',
     course: 'Advanced Circuit Theory',
     trade: 'Electrical',
+    eventType: 'Webinar',
     dateRange: '16 Feb – 06 Mar 2026',
     time: '10:00 – 16:00',
     totalSessions: 4,
@@ -495,6 +501,7 @@ export const attendanceEvents: AttendanceEvent[] = [
     id: 'ev3',
     course: 'Plumbing Basics 101',
     trade: 'Plumbing',
+    eventType: 'In Person',
     dateRange: '18 Feb – 04 Mar 2026',
     time: '08:30 – 15:30',
     totalSessions: 5,
@@ -533,6 +540,7 @@ export const attendanceEvents: AttendanceEvent[] = [
     id: 'ev4',
     course: 'Renewables Overview',
     trade: 'Electrical',
+    eventType: 'Webinar',
     dateRange: '2 Mar – 20 Mar 2026',
     time: '10:00 – 16:00',
     totalSessions: 4,

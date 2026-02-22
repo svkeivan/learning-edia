@@ -70,38 +70,40 @@ const IconChevron = ({ open }: { open: boolean }) => (
 );
 
 const sections: NavSection[] = [
-  {
-    name: 'Staff Management',
-    icon: <IconStaff />,
-    children: [
-      { name: 'Staff', href: '/iam/staff' },
-      { name: 'Teams', href: '/iam/teams' },
-      { name: 'Exceptions', href: '/iam/exceptions' },
-    ],
-  },
-  {
-    name: 'Locations',
-    icon: <IconLocation />,
-    children: [
-      { name: 'Management', href: '/locations/management' },
-      { name: 'Rooms', href: '/locations/rooms' },
-      { name: 'Exceptions', href: '/locations/exceptions' },
-      { name: 'Countries', href: '/locations/countries' },
-    ],
-  },
+  // No pages yet
+  // {
+  //   name: 'Staff Management',
+  //   icon: <IconStaff />,
+  //   children: [
+  //     { name: 'Staff', href: '/iam/staff' },
+  //     { name: 'Teams', href: '/iam/teams' },
+  //     { name: 'Exceptions', href: '/iam/exceptions' },
+  //   ],
+  // },
+  // No pages yet
+  // {
+  //   name: 'Locations',
+  //   icon: <IconLocation />,
+  //   children: [
+  //     { name: 'Management', href: '/locations/management' },
+  //     { name: 'Rooms', href: '/locations/rooms' },
+  //     { name: 'Exceptions', href: '/locations/exceptions' },
+  //     { name: 'Countries', href: '/locations/countries' },
+  //   ],
+  // },
   {
     name: 'Learning',
     icon: <IconLearning />,
     children: [
-      { name: 'Trades', href: '/admin/trades' },
-      { name: 'Repos', href: '/admin/repos' },
-      { name: 'Packages', href: '/admin/packages' },
+      // { name: 'Trades', href: '/admin/trades' }, // no page yet
+      // { name: 'Repos', href: '/admin/repos' }, // no page yet
+      // { name: 'Packages', href: '/admin/packages' }, // no page yet
       { name: 'Courses', href: '/admin/courses' },
-      { name: 'Knowledge Units', href: '/admin/knowledge-units' },
+      // { name: 'Knowledge Units', href: '/admin/knowledge-units' }, // no page yet
       { name: 'Modules', href: '/admin/modules' },
-      { name: 'Form Builder', href: '/admin/form-builder' },
-      { name: 'Products', href: '/admin/products' },
-      { name: 'AO Management', href: '/admin/ao-management' },
+      // { name: 'Form Builder', href: '/admin/form-builder' }, // no page yet
+      // { name: 'Products', href: '/admin/products' }, // no page yet
+      // { name: 'AO Management', href: '/admin/ao-management' }, // no page yet
     ],
   },
   {
@@ -109,38 +111,41 @@ const sections: NavSection[] = [
     icon: <IconAssessment />,
     alwaysOpen: true,
     children: [
-      { name: 'Overview', href: '/assessment-center' },
-      { name: 'Assessments', href: '/assessment-center/assessments' },
-      { name: 'Grading Queue', href: '/assessment-center/grading', badge: 17 },
-      { name: 'RPL Requests', href: '/assessment-center/rpl-requests', badge: 3 },
+      // { name: 'Overview', href: '/assessment-center' },
+      // { name: 'Assessments', href: '/assessment-center/assessments' },
+      // { name: 'Grading Queue', href: '/assessment-center/grading', badge: 17 },
+      // { name: 'RPL Requests', href: '/assessment-center/rpl-requests', badge: 3 },
       { name: 'Attendance', href: '/assessment-center/attendance' },
-      { name: 'Reports', href: '/assessment-center/reports' },
+      // { name: 'Reports', href: '/assessment-center/reports' },
     ],
   },
-  {
-    name: 'Access Network',
-    icon: <IconNetwork />,
-    children: [
-      { name: 'Offers', href: '/access-network/offers' },
-      { name: 'Categories', href: '/access-network/categories' },
-      { name: 'Partners', href: '/access-network/partners' },
-    ],
-  },
-  {
-    name: 'Shop',
-    icon: <IconShop />,
-    children: [
-      { name: 'Collections', href: '/academic-resources/categories' },
-      { name: 'Course Books', href: '/other/course-books' },
-    ],
-  },
-  {
-    name: 'Content',
-    icon: <IconContent />,
-    children: [
-      { name: 'Pages', href: '/content/pages' },
-    ],
-  },
+  // No pages yet
+  // {
+  //   name: 'Access Network',
+  //   icon: <IconNetwork />,
+  //   children: [
+  //     { name: 'Offers', href: '/access-network/offers' },
+  //     { name: 'Categories', href: '/access-network/categories' },
+  //     { name: 'Partners', href: '/access-network/partners' },
+  //   ],
+  // },
+  // No pages yet
+  // {
+  //   name: 'Shop',
+  //   icon: <IconShop />,
+  //   children: [
+  //     { name: 'Collections', href: '/academic-resources/categories' },
+  //     { name: 'Course Books', href: '/other/course-books' },
+  //   ],
+  // },
+  // No pages yet
+  // {
+  //   name: 'Content',
+  //   icon: <IconContent />,
+  //   children: [
+  //     { name: 'Pages', href: '/content/pages' },
+  //   ],
+  // },
 ];
 
 export default function Sidebar() {
