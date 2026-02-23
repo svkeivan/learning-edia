@@ -244,14 +244,9 @@ export default function Sidebar() {
 
       {/* Bottom user area */}
       <div className="px-4 py-4 border-t border-slate-700/60">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
-            A
-          </div>
-          <div className="min-w-0">
-            <p className="text-white text-sm font-medium truncate">Admin User</p>
-            <p className="text-slate-500 text-xs truncate">admin@lms.co.uk</p>
-          </div>
+        <div className="min-w-0">
+          <p className="text-white text-sm font-medium truncate">Admin User</p>
+          <p className="text-slate-500 text-xs truncate">admin@lms.co.uk</p>
         </div>
       </div>
     </aside>
