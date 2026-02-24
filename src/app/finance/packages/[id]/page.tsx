@@ -656,14 +656,20 @@ export default function PackageCockpitPage() {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const recalcAllRevenue = (stages: FinanceStage[]): FinanceStage[] => {
+    const total = stages.reduce((s, st) => s + st.price, 0);
+    if (total === 0) return stages.map(s => ({ ...s, revenueRecognition: 0 }));
+    return stages.map(s => ({ ...s, revenueRecognition: Math.round((s.price / total) * 100) }));
+  };
+
   const updateRevenue = useCallback((stageId: string, val: number) => {
     setStages(prev => {
-      // Base = current sum of all stage prices (delivery total, excluding digital)
       const deliverySum = prev.reduce((s, st) => s + st.price, 0);
       const derivedPrice = Math.round(deliverySum * val / 100);
-      return prev.map(s =>
-        s.id === stageId ? { ...s, revenueRecognition: val, price: derivedPrice } : s
+      const updated = prev.map(s =>
+        s.id === stageId ? { ...s, price: derivedPrice } : s
       );
+      return recalcAllRevenue(updated);
     });
   }, []);
 
@@ -673,14 +679,10 @@ export default function PackageCockpitPage() {
 
   const updatePrice = useCallback((stageId: string, val: number) => {
     setStages(prev => {
-      // New delivery sum = replace this stage's old price with the new one
-      const newDeliverySum = prev.reduce((s, st) => s + (st.id === stageId ? val : st.price), 0);
-      const derivedRevenue = newDeliverySum > 0
-        ? Math.round((val / newDeliverySum) * 100)
-        : 0;
-      return prev.map(s =>
-        s.id === stageId ? { ...s, price: val, revenueRecognition: derivedRevenue } : s
+      const updated = prev.map(s =>
+        s.id === stageId ? { ...s, price: val } : s
       );
+      return recalcAllRevenue(updated);
     });
   }, []);
 
@@ -690,22 +692,17 @@ export default function PackageCockpitPage() {
       : newTotal;
 
     setStages(prev => {
-      const revTotal = prev.reduce((s, st) => s + st.revenueRecognition, 0);
+      const currentTotal = prev.reduce((s, st) => s + st.price, 0);
 
-      if (revTotal > 0) {
-        return prev.map(s => ({
-          ...s,
-          price: Math.round(newDeliverySum * s.revenueRecognition / revTotal),
-        }));
+      if (currentTotal > 0) {
+        const ratio = newDeliverySum / currentTotal;
+        const updated = prev.map(s => ({ ...s, price: Math.round(s.price * ratio) }));
+        return recalcAllRevenue(updated);
       }
 
       const even = Math.round(newDeliverySum / prev.length);
-      const evenRev = Math.round(100 / prev.length);
-      return prev.map(s => ({
-        ...s,
-        price: even,
-        revenueRecognition: evenRev,
-      }));
+      const updated = prev.map(s => ({ ...s, price: even }));
+      return recalcAllRevenue(updated);
     });
   }, [digitalAccessPct]);
 
