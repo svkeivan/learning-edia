@@ -35,24 +35,15 @@ const activityTypeStyle: Record<ActivityType, string> = {
 };
 
 const statusDot: Record<PackageStatus, string> = {
-  Active: 'bg-emerald-500',
-  Draft: 'bg-amber-500',
-  Inactive: 'bg-gray-400',
+  Pending: 'bg-amber-500',
+  'Ready to Sell': 'bg-emerald-500',
 };
 const statusText: Record<PackageStatus, string> = {
-  Active: 'bg-emerald-100 text-emerald-700',
-  Draft: 'bg-amber-100 text-amber-700',
-  Inactive: 'bg-gray-100 text-gray-500',
+  Pending: 'bg-amber-100 text-amber-700',
+  'Ready to Sell': 'bg-emerald-100 text-emerald-700',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
-}
 
 function fmtPrice(n: number) {
   return `£${n.toLocaleString('en-GB')}`;
@@ -64,11 +55,6 @@ function countActivitiesByType(stages: FinanceStage[], type: ActivityType): numb
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
-const IcEdit = () => (
-  <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-  </svg>
-);
 const IcCheck = () => (
   <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -83,28 +69,6 @@ const IcChevron = ({ open }: { open: boolean }) => (
   <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
     className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>
     <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-  </svg>
-);
-const IcGrip = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="text-gray-300">
-    <circle cx="5" cy="4" r="1.3" /><circle cx="5" cy="8" r="1.3" /><circle cx="5" cy="12" r="1.3" />
-    <circle cx="11" cy="4" r="1.3" /><circle cx="11" cy="8" r="1.3" /><circle cx="11" cy="12" r="1.3" />
-  </svg>
-);
-const IcClock = () => (
-  <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="opacity-50">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-  </svg>
-);
-const IcGlobe = () => (
-  <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="opacity-60">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253" />
-  </svg>
-);
-const IcPin = () => (
-  <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="opacity-60">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
   </svg>
 );
 
@@ -363,7 +327,6 @@ function ActivityRow({
   index: number;
 }) {
   const typeStyle = activityTypeStyle[activity.type];
-  const isInPerson = activity.delivery === 'In-Person';
 
   return (
     <tr className={`border-t border-gray-100 hover:bg-gray-50/50 transition-colors ${index % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
@@ -373,14 +336,8 @@ function ActivityRow({
         </span>
       </td>
       <td className="py-2 px-2 text-gray-800 font-medium">{activity.name}</td>
-      <td className="py-2 px-2 text-gray-500 tabular-nums text-xs">
-        <span className="inline-flex items-center gap-1"><IcClock /> {fmtDuration(activity.durationMinutes)}</span>
-      </td>
-      <td className="py-2 px-2">
+      <td className="py-2 pl-2 pr-5">
         <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${typeStyle}`}>{activity.type}</span>
-      </td>
-      <td className={`py-2 pl-2 pr-5 text-xs ${isInPerson ? 'text-teal-600 font-medium' : 'text-gray-500'}`}>
-        <span className="inline-flex items-center gap-1">{isInPerson ? <IcPin /> : <IcGlobe />}{activity.delivery}</span>
       </td>
     </tr>
   );
@@ -392,8 +349,6 @@ function StageCard({
   stage,
   stageIndex,
   cumulative,
-  dragHandleProps,
-  isDragging,
   onUpdateRevenue,
   onUpdateRefund,
   onUpdatePrice,
@@ -401,44 +356,37 @@ function StageCard({
   stage: FinanceStage;
   stageIndex: number;
   cumulative: number;
-  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
-  isDragging?: boolean;
   onUpdateRevenue: (id: string, val: number) => void;
   onUpdateRefund: (id: string, val: number) => void;
   onUpdatePrice: (id: string, val: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const stageColor = STAGE_BAR_COLORS[stageIndex % STAGE_BAR_COLORS.length];
-  const totalActivityDuration = stage.activities.reduce((s, a) => s + a.durationMinutes, 0);
+  const isUnpriced = stage.price === 0;
 
   return (
-    <div
-      className={`bg-white rounded-xl border transition-shadow ${isDragging
-          ? 'border-orange-300 shadow-xl rotate-1 scale-[1.01]'
-          : 'border-gray-200 hover:border-gray-300'
-        }`}
-    >
+    <div className={`bg-white rounded-xl border transition-shadow ${isUnpriced ? 'border-amber-300 border-dashed' : 'border-gray-200 hover:border-gray-300'}`}>
       <div className="flex items-stretch">
 
-        {/* Left: drag + content */}
+        {/* Left: content */}
         <div className="flex items-center min-w-0 flex-1">
-          <div
-            {...dragHandleProps}
-            className="flex items-center justify-center w-9 shrink-0 self-stretch cursor-grab active:cursor-grabbing hover:bg-gray-50 transition-colors border-r border-gray-100 rounded-l-xl"
-            title="Drag to reorder"
-          >
-            <IcGrip />
-          </div>
-
           <div className="flex items-center gap-3 pl-4 pr-4 py-3 min-w-0 flex-1">
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${stageColor}`}>
-              {stage.order}
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${isUnpriced ? 'bg-amber-400' : stageColor}`}>
+              {isUnpriced ? (
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              ) : stage.order}
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{stage.courseName}</p>
-              <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
-                <span className="flex items-center gap-1"><IcClock /> {fmtDuration(totalActivityDuration)}</span>
-                <span>{stage.activities.length} activities</span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-gray-500">{stage.durationHours}h{stage.durationMinutes > 0 ? ` ${stage.durationMinutes}m` : ''}</span>
+                <span className="text-gray-300">·</span>
+                <span className="text-xs text-gray-500">{stage.activities.length} activities</span>
+                {isUnpriced && (
+                  <span className="text-[10px] font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">Needs pricing</span>
+                )}
               </div>
             </div>
           </div>
@@ -491,9 +439,7 @@ function StageCard({
               <tr className="bg-gray-100/80 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                 <th className="text-left py-2 pl-5 pr-2 w-8">#</th>
                 <th className="text-left py-2 px-2">Activity</th>
-                <th className="text-left py-2 px-2 w-20">Duration</th>
-                <th className="text-left py-2 px-2 w-24">Type</th>
-                <th className="text-left py-2 pl-2 pr-5 w-24">Delivery</th>
+                <th className="text-left py-2 pl-2 pr-5 w-24">Type</th>
               </tr>
             </thead>
             <tbody>
@@ -508,96 +454,34 @@ function StageCard({
   );
 }
 
-// ─── Native Drag-and-Drop Sortable List ───────────────────────────────────────
+// ─── Stage List ───────────────────────────────────────────────────────────────
 
-function SortableStageList({
+function StageList({
   stages,
   cumulatives,
-  onReorder,
   onUpdateRevenue,
   onUpdateRefund,
   onUpdatePrice,
 }: {
   stages: FinanceStage[];
   cumulatives: number[];
-  onReorder: (newStages: FinanceStage[]) => void;
   onUpdateRevenue: (id: string, val: number) => void;
   onUpdateRefund: (id: string, val: number) => void;
   onUpdatePrice: (id: string, val: number) => void;
 }) {
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
-  const dragIndexRef = useRef<number>(-1);
-
-  const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
-    setDragId(id);
-    dragIndexRef.current = stages.findIndex(s => s.id === id);
-    e.dataTransfer.effectAllowed = 'move';
-    // Hide the default ghost by setting an invisible element
-    const ghost = document.createElement('div');
-    ghost.style.position = 'absolute';
-    ghost.style.top = '-9999px';
-    document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, 0, 0);
-    setTimeout(() => document.body.removeChild(ghost), 0);
-  }, [stages]);
-
-  const handleDragOver = useCallback((e: React.DragEvent, id: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setOverId(id);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!dragId || dragId === targetId) { setDragId(null); setOverId(null); return; }
-    const from = stages.findIndex(s => s.id === dragId);
-    const to = stages.findIndex(s => s.id === targetId);
-    if (from === -1 || to === -1) return;
-    const next = [...stages];
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    // Re-assign order numbers
-    const reordered = next.map((s, i) => ({ ...s, order: i + 1 }));
-    onReorder(reordered);
-    setDragId(null);
-    setOverId(null);
-  }, [dragId, stages, onReorder]);
-
-  const handleDragEnd = useCallback(() => {
-    setDragId(null);
-    setOverId(null);
-  }, []);
-
   return (
     <div className="space-y-2">
-      {stages.map((stage, i) => {
-        const isDragging = dragId === stage.id;
-        const isOver = overId === stage.id && dragId !== stage.id;
-
-        return (
-          <div
-            key={stage.id}
-            draggable
-            onDragStart={e => handleDragStart(e, stage.id)}
-            onDragOver={e => handleDragOver(e, stage.id)}
-            onDrop={e => handleDrop(e, stage.id)}
-            onDragEnd={handleDragEnd}
-            className={`transition-all ${isDragging ? 'opacity-40' : 'opacity-100'} ${isOver ? 'ring-2 ring-orange-400 ring-offset-1 rounded-xl' : ''
-              }`}
-          >
-            <StageCard
-              stage={stage}
-              stageIndex={i}
-              cumulative={cumulatives[i]}
-              isDragging={isDragging}
-              onUpdateRevenue={onUpdateRevenue}
-              onUpdateRefund={onUpdateRefund}
-              onUpdatePrice={onUpdatePrice}
-            />
-          </div>
-        );
-      })}
+      {stages.map((stage, i) => (
+        <StageCard
+          key={stage.id}
+          stage={stage}
+          stageIndex={i}
+          cumulative={cumulatives[i]}
+          onUpdateRevenue={onUpdateRevenue}
+          onUpdateRefund={onUpdateRefund}
+          onUpdatePrice={onUpdatePrice}
+        />
+      ))}
     </div>
   );
 }
@@ -617,7 +501,7 @@ function SummaryPanel({
 }) {
   const revTotal = stages.reduce((s, st) => s + st.revenueRecognition, 0);
   const revOk = revTotal === 100;
-  const maxRefund = stages[0]?.exposedRefund ?? 0;
+  const totalRefund = stages.reduce((s, st) => s + st.exposedRefund, 0);
   // Additive price model: total = stages (delivery) + digital asset component
   const sumOfStagePrices = stages.reduce((s, st) => s + st.price, 0);
   const digitalAssetValue = Math.round(sumOfStagePrices * digitalAccessPct / 100);
@@ -714,7 +598,7 @@ function SummaryPanel({
         {/* Other stats */}
         <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
           {[
-            { label: 'Max Refund Exposure', value: `£${maxRefund}`, highlight: maxRefund > 60 },
+            { label: 'Total Refund', value: fmtPrice(totalRefund), highlight: totalRefund > 200 },
             { label: 'Total Duration', value: `${pkg.totalDurationHours}h`, highlight: false },
           ].map(({ label, value, highlight }) => (
             <div key={label} className="flex justify-between items-center">
@@ -750,7 +634,7 @@ function SummaryPanel({
 
       {/* Hint */}
       <p className="text-[10px] text-gray-400 text-center px-2 leading-relaxed">
-        Click any value to edit · Drag stages to reorder · Activities are read-only
+        Click any value to edit · Activities are read-only
       </p>
     </div>
   );
@@ -800,9 +684,30 @@ export default function PackageCockpitPage() {
     });
   }, []);
 
-  const reorderStages = useCallback((newStages: FinanceStage[]) => {
-    setStages(newStages);
-  }, []);
+  const updateTotalPrice = useCallback((newTotal: number) => {
+    const newDeliverySum = digitalAccessPct > 0
+      ? Math.round(newTotal / (1 + digitalAccessPct / 100))
+      : newTotal;
+
+    setStages(prev => {
+      const revTotal = prev.reduce((s, st) => s + st.revenueRecognition, 0);
+
+      if (revTotal > 0) {
+        return prev.map(s => ({
+          ...s,
+          price: Math.round(newDeliverySum * s.revenueRecognition / revTotal),
+        }));
+      }
+
+      const even = Math.round(newDeliverySum / prev.length);
+      const evenRev = Math.round(100 / prev.length);
+      return prev.map(s => ({
+        ...s,
+        price: even,
+        revenueRecognition: evenRev,
+      }));
+    });
+  }, [digitalAccessPct]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -818,14 +723,15 @@ export default function PackageCockpitPage() {
 
   const revTotal = stages.reduce((s, st) => s + st.revenueRecognition, 0);
   const totalActivities = stages.flatMap(s => s.activities).length;
-  const webinarCount = countActivitiesByType(stages, 'Webinar');
-  const examCount = countActivitiesByType(stages, 'Exam');
-  const maxRefund = stages[0]?.exposedRefund ?? 0;
+  const totalRefund = stages.reduce((s, st) => s + st.exposedRefund, 0);
 
-  // Total price = delivery (sum of stages) + digital asset component
   const sumOfStagePrices = stages.reduce((s, st) => s + st.price, 0);
   const digitalAssetValue = Math.round(sumOfStagePrices * digitalAccessPct / 100);
   const computedTotalPrice = sumOfStagePrices + digitalAssetValue;
+
+  const pricedStages = stages.filter(s => s.price > 0).length;
+  const allPriced = pricedStages === stages.length;
+  const pricingPct = stages.length > 0 ? Math.round((pricedStages / stages.length) * 100) : 0;
 
   return (
     <div className="flex flex-col min-h-full">
@@ -865,18 +771,36 @@ export default function PackageCockpitPage() {
               {statusDropdownOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setStatusDropdownOpen(false)} aria-hidden />
-                  <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[150px] rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
-                    {(['Active', 'Inactive', 'Draft'] as PackageStatus[]).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => { setPackageStatus(s); setStatusDropdownOpen(false); }}
-                        className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-sm hover:bg-gray-50 ${packageStatus === s ? 'bg-gray-50 font-semibold text-gray-900' : 'text-gray-700'}`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${statusDot[s]}`} />
-                        {s}
-                      </button>
-                    ))}
+                  <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[180px] rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
+                    {(['Pending', 'Ready to Sell'] as PackageStatus[]).map((s) => {
+                      const disabled = s === 'Ready to Sell' && !allPriced;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => { if (!disabled) { setPackageStatus(s); setStatusDropdownOpen(false); } }}
+                          className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-sm ${
+                            disabled
+                              ? 'opacity-40 cursor-not-allowed'
+                              : `hover:bg-gray-50 ${packageStatus === s ? 'bg-gray-50 font-semibold text-gray-900' : 'text-gray-700'}`
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${statusDot[s]}`} />
+                          <span className="flex-1">{s}</span>
+                          {disabled && (
+                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-400 shrink-0">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                    {!allPriced && (
+                      <div className="px-3.5 pt-1.5 pb-1 border-t border-gray-100 mt-1">
+                        <p className="text-[10px] text-amber-600">Price all courses to enable</p>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -910,25 +834,37 @@ export default function PackageCockpitPage() {
 
         {/* KPI Strip */}
         <div className="flex items-stretch border-t border-gray-100 divide-x divide-gray-100">
-          {/* Static metrics */}
+          {/* Package Price — editable */}
+          <div className="flex-1 px-4 py-2.5 min-w-0">
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Package Price</p>
+            <div className="mt-0.5">
+              <EditableField
+                value={computedTotalPrice}
+                prefix="£"
+                min={0}
+                max={999999}
+                step={100}
+                onConfirm={updateTotalPrice}
+                size="md"
+              />
+            </div>
+          </div>
+
           {[
-            { label: 'Package Price', value: fmtPrice(computedTotalPrice), sub: null },
-            { label: 'Max Refund', value: `£${maxRefund}`, sub: 'at purchase' },
-            { label: 'Modules', value: String(pkg.moduleCount), sub: null },
-            { label: 'Activities', value: String(totalActivities), sub: `${pkg.courseCount} courses` },
-            { label: 'Webinars', value: String(webinarCount), sub: 'live sessions' },
-            { label: 'Assessments', value: String(examCount), sub: 'exams' },
-          ].map(({ label, value, sub }) => (
+            { label: 'Total Refund', value: fmtPrice(totalRefund) },
+            { label: 'Courses', value: String(pkg.courseCount) },
+            { label: 'Modules', value: String(pkg.moduleCount) },
+            { label: 'Activities', value: String(totalActivities) },
+          ].map(({ label, value }) => (
             <div key={label} className="flex-1 px-4 py-2.5 min-w-0">
               <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide truncate">{label}</p>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-base font-bold text-gray-900 tabular-nums">{value}</span>
-                {sub && <span className="text-[10px] text-gray-400">{sub}</span>}
               </div>
             </div>
           ))}
 
-          {/* Digital Asset Value — editable, additive */}
+          {/* Digital Assets — editable */}
           <div className="flex-1 px-4 py-2.5 min-w-0">
             <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Digital Assets</p>
             <div className="flex items-baseline gap-1 mt-0.5">
@@ -948,25 +884,31 @@ export default function PackageCockpitPage() {
               <span className="text-[10px] text-gray-400">of delivery</span>
             </div>
           </div>
+        </div>
 
-          {/* Rev. Recognition — read-only glance */}
-          <div className="flex-1 px-4 py-2.5 min-w-0">
-            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Rev. Recognition</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`text-base font-bold tabular-nums ${revTotal === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
-                {revTotal}%
-              </span>
-              {revTotal === 100 && (
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} className="text-emerald-500">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+        {/* Pricing progress bar — only shown when not fully priced */}
+        {!allPriced && (
+          <div className="px-6 py-2 bg-amber-50/80 border-t border-amber-200/60">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 shrink-0">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-amber-500">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
-              )}
+                <span className="text-xs font-semibold text-amber-700">
+                  {pricedStages} of {stages.length} courses priced
+                </span>
+              </div>
+              <div className="flex-1 h-2 rounded-full bg-amber-200/60 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-orange-400 transition-all"
+                  style={{ width: `${pricingPct}%` }}
+                />
+              </div>
+              <span className="text-xs font-bold text-amber-700 tabular-nums shrink-0">{pricingPct}%</span>
             </div>
           </div>
-        </div>
+        )}
       </div>
-
-      
 
       {/* Main content */}
       <div className="flex flex-1 min-h-0">
@@ -975,10 +917,9 @@ export default function PackageCockpitPage() {
         <div className="flex-1 min-w-0 p-4 overflow-auto">
           <RevenueTimeline stages={stages} />
 
-          <SortableStageList
+          <StageList
             stages={stages}
             cumulatives={cumulatives}
-            onReorder={reorderStages}
             onUpdateRevenue={updateRevenue}
             onUpdateRefund={updateRefund}
             onUpdatePrice={updatePrice}

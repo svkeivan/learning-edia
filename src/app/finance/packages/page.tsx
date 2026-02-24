@@ -7,11 +7,22 @@ import { useState } from 'react';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function totalRefundExposure(pkg: FinancePackage): number {
-  return pkg.stages[0]?.exposedRefund ?? 0;
+  return pkg.stages.reduce((sum, s) => sum + s.exposedRefund, 0);
 }
 
-function totalRevenueRecognition(pkg: FinancePackage): number {
-  return pkg.stages.reduce((sum, s) => sum + s.revenueRecognition, 0);
+function digitalAssetsTotal(pkg: FinancePackage): number {
+  const deliverySum = pkg.stages.reduce((s, st) => s + st.price, 0);
+  return Math.round(deliverySum * pkg.digitalAccessPercent / 100);
+}
+
+function totalActivities(pkg: FinancePackage): number {
+  return pkg.stages.reduce((sum, s) => sum + s.activities.length, 0);
+}
+
+function pricingProgress(pkg: FinancePackage): { priced: number; total: number; pct: number } {
+  const total = pkg.stages.length;
+  const priced = pkg.stages.filter(s => s.price > 0).length;
+  return { priced, total, pct: total > 0 ? Math.round((priced / total) * 100) : 0 };
 }
 
 function formatPrice(n: number) {
@@ -21,9 +32,8 @@ function formatPrice(n: number) {
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 const statusStyles: Record<PackageStatus, string> = {
-  Active: 'bg-emerald-100 text-emerald-700',
-  Draft: 'bg-amber-100 text-amber-700',
-  Inactive: 'bg-gray-100 text-gray-500',
+  Pending: 'bg-amber-100 text-amber-700',
+  'Ready to Sell': 'bg-emerald-100 text-emerald-700',
 };
 
 const tradeStyles: Record<TradeType, string> = {
@@ -36,7 +46,7 @@ const tradeStyles: Record<TradeType, string> = {
 function StatusBadge({ status }: { status: PackageStatus }) {
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusStyles[status]}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${status === 'Active' ? 'bg-emerald-500' : status === 'Draft' ? 'bg-amber-500' : 'bg-gray-400'}`} />
+      <span className={`w-1.5 h-1.5 rounded-full ${status === 'Ready to Sell' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
       {status}
     </span>
   );
@@ -50,66 +60,34 @@ function TradeBadge({ trade }: { trade: TradeType }) {
   );
 }
 
-// ─── Revenue Gauge ────────────────────────────────────────────────────────────
+// ─── Package Card ─────────────────────────────────────────────────────────────
 
-function RevenueGauge({ pct }: { pct: number }) {
+function PricingProgressBar({ pkg }: { pkg: FinancePackage }) {
+  const { priced, total, pct } = pricingProgress(pkg);
   const isComplete = pct === 100;
-  const isOver = pct > 100;
-  const color = isOver ? 'bg-red-500' : isComplete ? 'bg-emerald-500' : 'bg-orange-400';
-  const textColor = isOver ? 'text-red-600' : isComplete ? 'text-emerald-600' : 'text-orange-600';
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-gray-500">Revenue recognition</span>
-        <span className={`text-xs font-semibold ${textColor}`}>{pct}%</span>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs text-gray-500">Pricing progress</span>
+        <span className={`text-xs font-semibold tabular-nums ${isComplete ? 'text-emerald-600' : 'text-amber-600'}`}>
+          {priced} of {total} courses
+        </span>
       </div>
-      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${color}`}
-          style={{ width: `${Math.min(pct, 100)}%` }}
+          className={`h-full rounded-full transition-all ${isComplete ? 'bg-emerald-500' : 'bg-orange-400'}`}
+          style={{ width: `${pct}%` }}
         />
       </div>
     </div>
   );
 }
 
-// ─── Validation Indicator ─────────────────────────────────────────────────────
-
-function ValidationIndicator({ pkg }: { pkg: FinancePackage }) {
-  const revTotal = totalRevenueRecognition(pkg);
-  const revOk = revTotal === 100;
-
-  if (pkg.isReadyToSell && revOk) {
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
-        Ready to sell
-      </div>
-    );
-  }
-
-  const issues = [];
-  if (!revOk) issues.push(`Revenue: ${revTotal}%`);
-  if (!pkg.isReadyToSell) issues.push('Not validated');
-
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-amber-600">
-      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-      </svg>
-      {issues.join(' · ')}
-    </div>
-  );
-}
-
-// ─── Package Card ─────────────────────────────────────────────────────────────
-
 function PackageCard({ pkg }: { pkg: FinancePackage }) {
-  const revTotal = totalRevenueRecognition(pkg);
-  const maxRefund = totalRefundExposure(pkg);
+  const refundTotal = totalRefundExposure(pkg);
+  const digitalTotal = digitalAssetsTotal(pkg);
+  const activityCount = totalActivities(pkg);
 
   return (
     <Link
@@ -127,72 +105,43 @@ function PackageCard({ pkg }: { pkg: FinancePackage }) {
         <StatusBadge status={pkg.status} />
       </div>
 
-      {/* Badges */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* Info pills: trade, courses, modules, activities */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <TradeBadge trade={pkg.trade} />
-        <span className="text-xs text-gray-400">{pkg.stages.length} stages</span>
-        <span className="text-xs text-gray-400">·</span>
-        <span className="text-xs text-gray-400">{pkg.courseCount} courses</span>
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{pkg.courseCount} courses</span>
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{pkg.moduleCount} modules</span>
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{activityCount} activities</span>
       </div>
 
-      {/* Financial stats */}
+      {/* Financial stats: total price, total refund, digital assets */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="bg-gray-50 rounded-lg p-2.5">
           <p className="text-xs text-gray-500 mb-0.5">Total Price</p>
           <p className="text-sm font-bold text-gray-900">{formatPrice(pkg.totalPrice)}</p>
         </div>
         <div className="bg-gray-50 rounded-lg p-2.5">
-          <p className="text-xs text-gray-500 mb-0.5">Max Refund</p>
-          <p className="text-sm font-bold text-gray-900">£{maxRefund}</p>
+          <p className="text-xs text-gray-500 mb-0.5">Total Refund</p>
+          <p className="text-sm font-bold text-gray-900">{formatPrice(refundTotal)}</p>
         </div>
         <div className="bg-gray-50 rounded-lg p-2.5">
-          <p className="text-xs text-gray-500 mb-0.5">Digital Access</p>
-          <p className="text-sm font-bold text-gray-900">{pkg.digitalAccessPercent}%</p>
+          <p className="text-xs text-gray-500 mb-0.5">Digital Assets</p>
+          <p className="text-sm font-bold text-gray-900">{formatPrice(digitalTotal)}</p>
         </div>
       </div>
 
-      {/* Revenue gauge */}
-      <div className="mb-3">
-        <RevenueGauge pct={revTotal} />
-      </div>
-
-      {/* Validation */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-        <ValidationIndicator pkg={pkg} />
-        <span className="text-xs text-gray-400">
-          Updated {new Date(pkg.lastUpdated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </span>
-      </div>
+      {/* Pricing progress */}
+      <PricingProgressBar pkg={pkg} />
     </Link>
-  );
-}
-
-// ─── Summary Cards ────────────────────────────────────────────────────────────
-
-function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
-  return (
-    <div className={`rounded-xl p-4 border ${color}`}>
-      <p className="text-xs font-medium opacity-70 mb-1">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
-      {sub && <p className="text-xs mt-0.5 opacity-60">{sub}</p>}
-    </div>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const STATUS_FILTERS: Array<PackageStatus | 'All'> = ['All', 'Active', 'Draft', 'Inactive'];
+const STATUS_FILTERS: Array<PackageStatus | 'All'> = ['All', 'Pending', 'Ready to Sell'];
 
 export default function FinancePackagesPage() {
   const [statusFilter, setStatusFilter] = useState<PackageStatus | 'All'>('All');
   const [search, setSearch] = useState('');
-
-  const totalPortfolioValue = financePackages.reduce((s, p) => s + p.totalPrice, 0);
-  const packagesReadyToSell = financePackages.filter(p => p.isReadyToSell).length;
-  const packagesNeedingAttention = financePackages.filter(p => {
-    const rev = totalRevenueRecognition(p);
-    return rev !== 100 || !p.isReadyToSell;
-  }).length;
 
   const filtered = financePackages.filter(pkg => {
     const matchesStatus = statusFilter === 'All' || pkg.status === statusFilter;
@@ -214,34 +163,6 @@ export default function FinancePackagesPage() {
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Finance Manager</h1>
         <p className="text-sm text-gray-500 mt-1">Review pricing structures, revenue recognition and refund policies across all course packages.</p>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <SummaryCard
-          label="Total Packages"
-          value={String(financePackages.length)}
-          sub={`${packagesReadyToSell} ready to sell`}
-          color="bg-white border-gray-200 text-gray-900"
-        />
-        <SummaryCard
-          label="Portfolio Value"
-          value={formatPrice(totalPortfolioValue)}
-          sub="across all packages"
-          color="bg-white border-gray-200 text-gray-900"
-        />
-        <SummaryCard
-          label="Ready to Sell"
-          value={String(packagesReadyToSell)}
-          sub={`${financePackages.length - packagesReadyToSell} pending`}
-          color="bg-emerald-50 border-emerald-200 text-emerald-900"
-        />
-        <SummaryCard
-          label="Need Attention"
-          value={String(packagesNeedingAttention)}
-          sub="pricing issues"
-          color={packagesNeedingAttention > 0 ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-white border-gray-200 text-gray-900'}
-        />
       </div>
 
       {/* Filters */}
