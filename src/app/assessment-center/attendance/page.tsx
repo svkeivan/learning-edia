@@ -175,9 +175,7 @@ function TodayPanel({
             const status = attendance[student.id] ?? student.status;
             return (
               <div key={student.id} className="flex items-center gap-4 px-5 py-3.5">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600 shrink-0">
-                  {student.name.split(' ').map(n => n[0]).join('')}
-                </div>
+              
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{student.name}</p>
                   <p className="text-xs text-gray-400">{student.email}</p>
@@ -750,10 +748,78 @@ function SectionHeader({
 
 type EventTypeFilter = 'All' | 'In Person' | 'Webinar';
 
+const monthLabelFormatter = new Intl.DateTimeFormat('en-GB', {
+  month: 'long',
+  year: 'numeric',
+});
+
+function parseSessionDate(dateText: string): Date | null {
+  const normalized = dateText.includes(',') ? dateText.split(',').slice(1).join(',').trim() : dateText;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getMonthStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonthOffset(base: Date, offset: number): Date {
+  return new Date(base.getFullYear(), base.getMonth() + offset, 1);
+}
+
+function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function eventHasGroupSessionInMonth(
+  event: AttendanceEvent,
+  group: 'upcoming' | 'past',
+  selectedMonth: Date
+): boolean {
+  const selectedKey = monthKey(selectedMonth);
+  const groupSessions = event.sessions.filter(s =>
+    group === 'upcoming' ? s.isFuture : !s.isToday && !s.isFuture
+  );
+  return groupSessions.some(session => {
+    const parsed = parseSessionDate(session.date);
+    return parsed ? monthKey(getMonthStart(parsed)) === selectedKey : false;
+  });
+}
+
+function SectionMonthFilter({
+  monthLabel,
+  onPrev,
+  onNext,
+}: {
+  monthLabel: string;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={onPrev}
+        className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        Prev month
+      </button>
+      <span className="text-xs font-semibold text-gray-500 min-w-28 text-center">{monthLabel}</span>
+      <button
+        onClick={onNext}
+        className="text-xs font-medium px-2.5 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+      >
+        Next month
+      </button>
+    </div>
+  );
+}
+
 export default function AttendancePage() {
   const [selectedEvent, setSelectedEvent] = useState<AttendanceEvent | null>(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<EventTypeFilter>('All');
+  const [upcomingMonthOffset, setUpcomingMonthOffset] = useState(0);
+  const [pastMonthOffset, setPastMonthOffset] = useState(0);
 
   if (selectedEvent) {
     return <AttendanceDetail event={selectedEvent} onBack={() => setSelectedEvent(null)} />;
@@ -772,6 +838,13 @@ export default function AttendancePage() {
   const todayEvents = filtered.filter(e => eventGroup(e) === 'today');
   const upcomingEvents = filtered.filter(e => eventGroup(e) === 'upcoming');
   const pastEvents = filtered.filter(e => eventGroup(e) === 'past');
+  const baseMonth = getMonthStart(new Date());
+  const selectedUpcomingMonth = addMonthOffset(baseMonth, upcomingMonthOffset);
+  const selectedPastMonth = addMonthOffset(baseMonth, pastMonthOffset);
+  const upcomingMonthLabel = monthLabelFormatter.format(selectedUpcomingMonth);
+  const pastMonthLabel = monthLabelFormatter.format(selectedPastMonth);
+  const upcomingEventsByMonth = upcomingEvents.filter(e => eventHasGroupSessionInMonth(e, 'upcoming', selectedUpcomingMonth));
+  const pastEventsByMonth = pastEvents.filter(e => eventHasGroupSessionInMonth(e, 'past', selectedPastMonth));
 
   const totalShown = filtered.length;
   const totalAll = attendanceEvents.length;
@@ -789,16 +862,6 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Today banner */}
-      {todayEvents.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl px-5 py-3.5 mb-6 flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
-          <p className="text-sm text-orange-800">
-            <strong>{todayCount} session{todayCount !== 1 ? 's' : ''} happening now</strong>
-            {' '}— {todayEvents.map(e => e.course).join(', ')}
-          </p>
-        </div>
-      )}
 
       {/* Search + filter bar */}
       <div className="flex flex-wrap items-center gap-3 mb-7">
@@ -879,20 +942,46 @@ export default function AttendancePage() {
       {/* Upcoming section */}
       {upcomingEvents.length > 0 && (
         <div className="mb-8">
-          <SectionHeader title="Upcoming" count={upcomingEvents.length} color="text-blue-600" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingEvents.map(e => <EventCard key={e.id} event={e} onClick={() => setSelectedEvent(e)} />)}
+          <SectionHeader title="Upcoming" count={upcomingEventsByMonth.length} color="text-blue-600" />
+          <div className="flex justify-end mb-3">
+            <SectionMonthFilter
+              monthLabel={upcomingMonthLabel}
+              onPrev={() => setUpcomingMonthOffset(prev => prev - 1)}
+              onNext={() => setUpcomingMonthOffset(prev => prev + 1)}
+            />
           </div>
+          {upcomingEventsByMonth.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {upcomingEventsByMonth.map(e => <EventCard key={e.id} event={e} onClick={() => setSelectedEvent(e)} />)}
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl px-4 py-6 text-sm text-gray-500">
+              No upcoming events in {upcomingMonthLabel}.
+            </div>
+          )}
         </div>
       )}
 
       {/* Past section */}
       {pastEvents.length > 0 && (
         <div className="mb-8">
-          <SectionHeader title="Past" count={pastEvents.length} color="text-gray-400" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pastEvents.map(e => <EventCard key={e.id} event={e} onClick={() => setSelectedEvent(e)} />)}
+          <SectionHeader title="Past" count={pastEventsByMonth.length} color="text-gray-400" />
+          <div className="flex justify-end mb-3">
+            <SectionMonthFilter
+              monthLabel={pastMonthLabel}
+              onPrev={() => setPastMonthOffset(prev => prev - 1)}
+              onNext={() => setPastMonthOffset(prev => prev + 1)}
+            />
           </div>
+          {pastEventsByMonth.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pastEventsByMonth.map(e => <EventCard key={e.id} event={e} onClick={() => setSelectedEvent(e)} />)}
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl px-4 py-6 text-sm text-gray-500">
+              No past events in {pastMonthLabel}.
+            </div>
+          )}
         </div>
       )}
     </div>
