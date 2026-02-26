@@ -666,10 +666,9 @@ export default function PackageCockpitPage() {
     setStages(prev => {
       const deliverySum = prev.reduce((s, st) => s + st.price, 0);
       const derivedPrice = Math.round(deliverySum * val / 100);
-      const updated = prev.map(s =>
-        s.id === stageId ? { ...s, price: derivedPrice } : s
+      return prev.map(s =>
+        s.id === stageId ? { ...s, revenueRecognition: val, price: derivedPrice } : s
       );
-      return recalcAllRevenue(updated);
     });
   }, []);
 
@@ -692,17 +691,17 @@ export default function PackageCockpitPage() {
       : newTotal;
 
     setStages(prev => {
-      const currentTotal = prev.reduce((s, st) => s + st.price, 0);
+      const revTotal = prev.reduce((s, st) => s + st.revenueRecognition, 0);
 
-      if (currentTotal > 0) {
-        const ratio = newDeliverySum / currentTotal;
-        const updated = prev.map(s => ({ ...s, price: Math.round(s.price * ratio) }));
-        return recalcAllRevenue(updated);
+      if (revTotal > 0) {
+        return prev.map(s => ({
+          ...s,
+          price: Math.round(newDeliverySum * s.revenueRecognition / revTotal),
+        }));
       }
 
       const even = Math.round(newDeliverySum / prev.length);
-      const updated = prev.map(s => ({ ...s, price: even }));
-      return recalcAllRevenue(updated);
+      return prev.map(s => ({ ...s, price: even }));
     });
   }, [digitalAccessPct]);
 

@@ -128,9 +128,6 @@ function PackageCard({ pkg }: { pkg: FinancePackage }) {
           <p className="text-sm font-bold text-gray-900">{formatPrice(digitalTotal)}</p>
         </div>
       </div>
-
-      {/* Pricing progress */}
-      <PricingProgressBar pkg={pkg} />
     </Link>
   );
 }
