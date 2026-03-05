@@ -60,18 +60,37 @@ function GradingModal({
           </button>
         </div>
 
-        {/* Answers */}
+        {/* Answers / Uploaded documents */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {submission.answers?.map((answer, i) => (
-            <div key={i} className="bg-gray-50 rounded-xl p-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Question {i + 1}</p>
-              <p className="text-sm font-medium text-gray-900 mb-3">{answer.question}</p>
-              <div className="bg-white rounded-lg border border-gray-200 p-3">
-                <p className="text-xs text-gray-400 mb-1">Student's Answer</p>
-                <p className="text-sm text-gray-700 leading-relaxed">{answer.answer}</p>
+          {submission.answers?.map((item, i) =>
+            item.type === 'file' ? (
+              <div key={i} className="bg-gray-50 rounded-xl p-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Uploaded document</p>
+                <div className="flex items-center gap-3 bg-white rounded-lg border border-gray-200 p-3">
+                  <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-red-600">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 0 0 2-2V9.414a1 1 0 0 0-.293-.707l-5.414-5.414A1 1 0 0 0 12.586 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">{item.fileName}</p>
+                    <p className="text-xs text-gray-500">{item.fileType} {item.size && `· ${item.size}`}</p>
+                  </div>
+                  <a href="#" onClick={e => e.preventDefault()} className="text-sm font-medium text-orange-600 hover:text-orange-700 shrink-0"
+                  >View PDF</a>
+                </div>
               </div>
-            </div>
-          ))}
+            ) : (
+              <div key={i} className="bg-gray-50 rounded-xl p-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Question {i + 1}</p>
+                <p className="text-sm font-medium text-gray-900 mb-3">{item.question}</p>
+                <div className="bg-white rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs text-gray-400 mb-1">Student&apos;s Answer</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{item.answer}</p>
+                </div>
+              </div>
+            )
+          )}
         </div>
 
         {/* Grading Controls */}
@@ -260,7 +279,7 @@ export default function GradingQueuePage() {
                           <span className="text-xs text-gray-500">Submitted {submission.submittedAt}</span>
                           <span className="text-xs text-gray-500">Time taken: {submission.timeTaken}</span>
                           <span className="text-xs text-gray-500">
-                            {submission.answers?.length ?? 0} open-ended question{(submission.answers?.length ?? 0) !== 1 ? 's' : ''} to review
+                            {submission.answers?.length ?? 0} document{(submission.answers?.length ?? 0) !== 1 ? 's' : ''} to review
                           </span>
                         </div>
                       </div>
@@ -286,12 +305,14 @@ export default function GradingQueuePage() {
                     </div>
                   </div>
 
-                  {/* Answer preview */}
+                  {/* Document preview */}
                   {submission.answers && submission.answers.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-100">
-                      <p className="text-xs text-gray-400 font-medium mb-2">Answer preview</p>
-                      <p className="text-sm text-gray-600 italic line-clamp-2">
-                        &ldquo;{submission.answers[0].answer}&rdquo;
+                      <p className="text-xs text-gray-400 font-medium mb-2">Uploaded documents</p>
+                      <p className="text-sm text-gray-600">
+                        {submission.answers
+                          .map(a => (a.type === 'file' ? a.fileName : a.answer))
+                          .join(', ')}
                       </p>
                     </div>
                   )}

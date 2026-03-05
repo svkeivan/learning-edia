@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getIqaChecks } from '@/lib/iqa-data';
 
 interface NavChild {
   name: string;
@@ -63,6 +64,12 @@ const IconContent = () => (
 const IconFinance = () => (
   <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+  </svg>
+);
+
+const IconIqa = () => (
+  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
   </svg>
 );
 
@@ -132,6 +139,17 @@ const sections: NavSection[] = [
       // { name: 'Reports', href: '/assessment-center/reports' },
     ],
   },
+  {
+    name: 'IQA',
+    icon: <IconIqa />,
+    children: [
+      { name: 'Overview', href: '/iqa' },
+      { name: 'Review Queue', href: '/iqa/review-queue' },
+      { name: 'Assign for Recheck', href: '/iqa/assign' },
+      { name: 'People', href: '/iqa/people' },
+      { name: 'Categories', href: '/iqa/categories' },
+    ],
+  },
   // No pages yet
   // {
   //   name: 'Access Network',
@@ -165,9 +183,25 @@ export default function Sidebar() {
   const pathname = usePathname();
   const isInAssessmentCenter = pathname.startsWith('/assessment-center');
 
+  const isInIqa = pathname.startsWith('/iqa');
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     'Assessment Center': true,
+    'IQA': true,
   });
+
+  const [iqaPendingCount, setIqaPendingCount] = useState(0);
+
+  useEffect(() => {
+    const update = () => setIqaPendingCount(getIqaChecks().filter(c => c.status === 'Pending').length);
+    update();
+    window.addEventListener('iqa-checks-updated', update);
+    return () => window.removeEventListener('iqa-checks-updated', update);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (isInIqa) setOpenSections(prev => ({ ...prev, 'IQA': true }));
+  }, [isInIqa]);
 
   const toggle = (name: string) => {
     if (name === 'Assessment Center') return;
@@ -195,8 +229,8 @@ export default function Sidebar() {
           const isAssessment = section.name === 'Assessment Center';
           const isOpen = isAssessment ? true : !!openSections[section.name];
           const hasActiveChild = section.children.some(c =>
-            c.href === pathname || (c.href !== '/assessment-center' && pathname.startsWith(c.href))
-          );
+            c.href === pathname || (c.href !== '/assessment-center' && c.href !== '/iqa' && pathname.startsWith(c.href))
+          ) || (section.name === 'IQA' && isInIqa);
 
           return (
             <div key={section.name} className="mb-1">
@@ -220,9 +254,10 @@ export default function Sidebar() {
               {isOpen && (
                 <div className="mt-0.5 ml-3 pl-3 border-l border-slate-700/50 space-y-0.5">
                   {section.children.map((child) => {
-                    const isActive = child.href === '/assessment-center'
-                      ? pathname === '/assessment-center'
-                      : pathname === child.href || pathname.startsWith(child.href + '/');
+                    const isActive =
+                      child.href === '/assessment-center' ? pathname === '/assessment-center' :
+                      child.href === '/iqa' ? pathname === '/iqa' :
+                      pathname === child.href || pathname.startsWith(child.href + '/');
 
                     return (
                       <Link
@@ -237,12 +272,12 @@ export default function Sidebar() {
                         `}
                       >
                         <span>{child.name}</span>
-                        {child.badge !== undefined && child.badge > 0 && (
+                        {(child.href === '/iqa/review-queue' ? iqaPendingCount : (child.badge ?? 0)) > 0 && (
                           <span className={`
                             text-xs font-semibold px-1.5 py-0.5 rounded-full
                             ${isActive ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700 text-slate-300'}
                           `}>
-                            {child.badge}
+                            {child.href === '/iqa/review-queue' ? iqaPendingCount : child.badge}
                           </span>
                         )}
                       </Link>

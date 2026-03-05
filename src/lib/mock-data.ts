@@ -131,11 +131,9 @@ export const assessments: Assessment[] = [
 
 // ─── SUBMISSIONS ─────────────────────────────────────────────────────────────
 
-export interface AnswerItem {
-  question: string;
-  answer: string;
-  type: 'mc' | 'text';
-}
+export type AnswerItem =
+  | { type: 'mc' | 'text'; question: string; answer: string }
+  | { type: 'file'; fileName: string; fileType: 'PDF'; size?: string };
 
 export interface StudentSubmission {
   id: string;
@@ -148,6 +146,8 @@ export interface StudentSubmission {
   attemptNumber: number;
   timeTaken: string;
   answers?: AnswerItem[];
+  /** Tutor who graded this submission (for IQA tracking) */
+  gradedBy?: string;
 }
 
 export const submissions: StudentSubmission[] = [
@@ -159,58 +159,67 @@ export const submissions: StudentSubmission[] = [
   { id: 's5', assessmentId: 'a1', student: 'David Park', email: 'd.park@email.com', submittedAt: '15 Feb 2026, 09:10', score: 78, status: 'Pass', attemptNumber: 1, timeTaken: '20 min' },
   { id: 's6', assessmentId: 'a1', student: 'Lisa Rodriguez', email: 'l.rodriguez@email.com', submittedAt: '15 Feb 2026, 09:55', score: 88, status: 'Pass', attemptNumber: 1, timeTaken: '19 min' },
 
-  // a2 – Electrical Safety (mixed – 3 awaiting grading)
+  // a2 – Electrical Safety (file upload – graded by tutors, in IQA)
   {
     id: 's7', assessmentId: 'a2', student: 'Tom Baker', email: 't.baker@email.com',
-    submittedAt: '13 Feb 2026, 14:20', score: null, status: 'Grading', attemptNumber: 1, timeTaken: '35 min',
+    submittedAt: '13 Feb 2026, 14:20', score: 72, status: 'Pass', attemptNumber: 1, timeTaken: '35 min', gradedBy: 't3',
     answers: [
-      { question: 'Explain the purpose of an RCD and how it protects against electric shock.', answer: 'An RCD monitors the difference between live and neutral currents. If it detects an imbalance of 30mA or more it disconnects power within 30ms, preventing serious injury.', type: 'text' },
-      { question: 'What is the maximum permitted voltage drop on a ring circuit?', answer: '3% for lighting circuits, 5% for power circuits of the nominal supply voltage.', type: 'text' },
+      { type: 'file', fileName: 'RCD_Assessment_Tom_Baker.pdf', fileType: 'PDF', size: '1.2 MB' },
     ],
   },
   {
     id: 's8', assessmentId: 'a2', student: 'Anna Smith', email: 'a.smith@email.com',
-    submittedAt: '13 Feb 2026, 15:05', score: null, status: 'Grading', attemptNumber: 1, timeTaken: '28 min',
+    submittedAt: '13 Feb 2026, 15:05', score: 68, status: 'Pass', attemptNumber: 1, timeTaken: '28 min', gradedBy: 't4',
     answers: [
-      { question: 'Explain the purpose of an RCD and how it protects against electric shock.', answer: 'RCDs protect people from electric shock by cutting power when they sense a fault. They measure current on live and neutral and if there is a difference it trips.', type: 'text' },
-      { question: 'What is the maximum permitted voltage drop on a ring circuit?', answer: 'I believe it is 5% but I am not entirely certain for the different circuit types.', type: 'text' },
+      { type: 'file', fileName: 'Electrical_Safety_Submission_Anna_Smith.pdf', fileType: 'PDF', size: '0.9 MB' },
     ],
   },
-  { id: 's9', assessmentId: 'a2', student: 'Carlos Diaz', email: 'c.diaz@email.com', submittedAt: '14 Feb 2026, 09:00', score: 73, status: 'Pass', attemptNumber: 1, timeTaken: '30 min' },
-  { id: 's10', assessmentId: 'a2', student: 'Priya Patel', email: 'p.patel@email.com', submittedAt: '14 Feb 2026, 10:30', score: 58, status: 'Fail', attemptNumber: 1, timeTaken: '38 min' },
+  {
+    id: 's9', assessmentId: 'a2', student: 'Carlos Diaz', email: 'c.diaz@email.com',
+    submittedAt: '14 Feb 2026, 09:00', score: 73, status: 'Pass', attemptNumber: 1, timeTaken: '30 min', gradedBy: 't1',
+    answers: [{ type: 'file', fileName: 'Electrical_Wiring_Carlos_Diaz.pdf', fileType: 'PDF', size: '1.3 MB' }],
+  },
+  {
+    id: 's10', assessmentId: 'a2', student: 'Priya Patel', email: 'p.patel@email.com',
+    submittedAt: '14 Feb 2026, 10:30', score: 58, status: 'Fail', attemptNumber: 1, timeTaken: '38 min', gradedBy: 't3',
+    answers: [{ type: 'file', fileName: 'Electrical_Submission_Priya_Patel.pdf', fileType: 'PDF', size: '1.0 MB' }],
+  },
   { id: 's11', assessmentId: 'a2', student: 'Rachel Green', email: 'r.green@email.com', submittedAt: '-', score: null, status: 'Not Started', attemptNumber: 0, timeTaken: '-' },
   {
     id: 's12', assessmentId: 'a2', student: 'Ben Thomas', email: 'b.thomas@email.com',
-    submittedAt: '15 Feb 2026, 14:30', score: null, status: 'Grading', attemptNumber: 1, timeTaken: '32 min',
+    submittedAt: '15 Feb 2026, 14:30', score: 70, status: 'Pass', attemptNumber: 1, timeTaken: '32 min', gradedBy: 't4',
     answers: [
-      { question: 'Explain the purpose of an RCD and how it protects against electric shock.', answer: 'RCDs continuously monitor current on two conductors. They trip if they detect any difference indicating a fault to earth. This prevents electrocution.', type: 'text' },
-      { question: 'What is the maximum permitted voltage drop on a ring circuit?', answer: 'The voltage drop should not exceed 3% for lighting circuits according to BS 7671.', type: 'text' },
+      { type: 'file', fileName: 'Electrical_Regulations_Ben_Thomas.pdf', fileType: 'PDF', size: '1.5 MB' },
     ],
   },
 
-  // a3 – Plumbing (mixed)
+  // a3 – Plumbing (file upload) – graded by tutors, in IQA
   {
     id: 's13', assessmentId: 'a3', student: 'Omar Hassan', email: 'o.hassan@email.com',
-    submittedAt: '12 Feb 2026, 13:45', score: null, status: 'Grading', attemptNumber: 1, timeTaken: '42 min',
-    answers: [{ question: 'Describe the process for testing a soldered capillary joint for leaks.', answer: 'After soldering, allow the joint to cool completely. Then pressurise the system to 1.5 times the working pressure using clean cold water and inspect all joints visually.', type: 'text' }],
+    submittedAt: '12 Feb 2026, 13:45', score: 78, status: 'Pass', attemptNumber: 1, timeTaken: '42 min', gradedBy: 't5',
+    answers: [{ type: 'file', fileName: 'Soldered_Joint_Test_Report_Omar_Hassan.pdf', fileType: 'PDF', size: '2.1 MB' }],
   },
   {
     id: 's14', assessmentId: 'a3', student: 'Nina Kowalski', email: 'n.kowalski@email.com',
-    submittedAt: '13 Feb 2026, 09:20', score: null, status: 'Grading', attemptNumber: 1, timeTaken: '38 min',
-    answers: [{ question: 'Describe the process for testing a soldered capillary joint for leaks.', answer: 'You need to test under pressure. Fill the pipe with water and check for drips at the joint area.', type: 'text' }],
+    submittedAt: '13 Feb 2026, 09:20', score: 62, status: 'Fail', attemptNumber: 1, timeTaken: '38 min', gradedBy: 't5',
+    answers: [{ type: 'file', fileName: 'Plumbing_Assessment_Nina_Kowalski.pdf', fileType: 'PDF', size: '0.8 MB' }],
   },
-  { id: 's15', assessmentId: 'a3', student: 'Liam Murphy', email: 'l.murphy@email.com', submittedAt: '14 Feb 2026, 14:15', score: 76, status: 'Pass', attemptNumber: 1, timeTaken: '33 min' },
+  {
+    id: 's15', assessmentId: 'a3', student: 'Liam Murphy', email: 'l.murphy@email.com',
+    submittedAt: '14 Feb 2026, 14:15', score: 76, status: 'Pass', attemptNumber: 1, timeTaken: '33 min', gradedBy: 't2',
+    answers: [{ type: 'file', fileName: 'Plumbing_Report_Liam_Murphy.pdf', fileType: 'PDF', size: '1.4 MB' }],
+  },
 
-  // a5 – Circuit Analysis
+  // a5 – Circuit Analysis (file upload) – graded by tutors, in IQA
   {
     id: 's16', assessmentId: 'a5', student: 'Tom Baker', email: 't.baker@email.com',
-    submittedAt: '16 Feb 2026, 10:15', score: null, status: 'Grading', attemptNumber: 1, timeTaken: '45 min',
-    answers: [{ question: "Using Kirchhoff's Voltage Law, explain how to calculate voltage across each resistor in a series circuit.", answer: "KVL states the sum of all voltage drops must equal the supply voltage. For each resistor V = IR where I is the same throughout, so V1 = I×R1, V2 = I×R2, and Vs = V1 + V2 + ... + Vn.", type: 'text' }],
+    submittedAt: '16 Feb 2026, 10:15', score: 85, status: 'Pass', attemptNumber: 1, timeTaken: '45 min', gradedBy: 't6',
+    answers: [{ type: 'file', fileName: 'Circuit_Analysis_Submission_Tom_Baker.pdf', fileType: 'PDF', size: '1.8 MB' }],
   },
   {
     id: 's17', assessmentId: 'a5', student: 'Anna Smith', email: 'a.smith@email.com',
-    submittedAt: '16 Feb 2026, 11:30', score: null, status: 'Grading', attemptNumber: 1, timeTaken: '38 min',
-    answers: [{ question: "Using Kirchhoff's Voltage Law, explain how to calculate voltage across each resistor in a series circuit.", answer: "KVL states the sum of EMFs equals the sum of voltage drops. You add up resistances and use V=IR to find each voltage drop.", type: 'text' }],
+    submittedAt: '16 Feb 2026, 11:30', score: 71, status: 'Pass', attemptNumber: 1, timeTaken: '38 min', gradedBy: 't6',
+    answers: [{ type: 'file', fileName: 'KVL_Assessment_Anna_Smith.pdf', fileType: 'PDF', size: '1.3 MB' }],
   },
 ];
 
