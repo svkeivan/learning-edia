@@ -2,6 +2,27 @@ export type AssessmentType = 'Multiple Choice' | 'Short Answer' | 'Mixed' | 'Fil
 export type AssessmentStatus = 'Active' | 'Draft' | 'Archived';
 export type SubmissionStatus = 'Pass' | 'Fail' | 'Grading' | 'Not Started';
 export type RPLStatus = 'Pending' | 'Accepted' | 'Rejected';
+export type KnowledgeUnitStatus = 'Active' | 'Inactive';
+
+export interface KnowledgeUnit {
+  id: string;
+  name: string;
+  relatedCourse: string;
+  activities: number;
+  theoryAssessments: number;
+  practicalAssessments: number;
+  status: KnowledgeUnitStatus;
+}
+
+export interface Qualification {
+  id: string;
+  name: string;
+  description: string;
+  knowledgeUnitIds: string[];
+  status: 'Active' | 'Draft';
+  createdAt: string;
+}
+
 export type AttendanceStatus = 'Present' | 'Absent' | 'Unmarked';
 
 // ─── ASSESSMENTS ────────────────────────────────────────────────────────────
@@ -600,5 +621,55 @@ export const attendanceEvents: AttendanceEvent[] = [
         ],
       },
     ],
+  },
+];
+
+// ─── KNOWLEDGE UNITS ────────────────────────────────────────────────────────
+
+export const knowledgeUnits: KnowledgeUnit[] = [
+  { id: 'ku1', name: 'Gas Combustion Principles', relatedCourse: 'Introduction to Gas Safety', activities: 2, theoryAssessments: 0, practicalAssessments: 0, status: 'Active' },
+  { id: 'ku2', name: 'Electrical Safety Regulations', relatedCourse: 'Advanced Circuit Theory', activities: 1, theoryAssessments: 0, practicalAssessments: 0, status: 'Active' },
+  { id: 'ku3', name: 'Hydraulics Fundamentals', relatedCourse: 'Plumbing Basics 101', activities: 1, theoryAssessments: 0, practicalAssessments: 0, status: 'Inactive' },
+  { id: 'ku4', name: 'Gas Appliance Installation', relatedCourse: 'Gas Safety Fundamentals', activities: 3, theoryAssessments: 1, practicalAssessments: 1, status: 'Active' },
+  { id: 'ku5', name: 'Wiring Regulations (BS 7671)', relatedCourse: 'Advanced Circuit Theory', activities: 2, theoryAssessments: 1, practicalAssessments: 0, status: 'Active' },
+  { id: 'ku6', name: 'Pipe Joining Techniques', relatedCourse: 'Plumbing Basics 101', activities: 4, theoryAssessments: 0, practicalAssessments: 2, status: 'Active' },
+  { id: 'ku7', name: 'Ventilation & Flue Systems', relatedCourse: 'Introduction to Gas Safety', activities: 1, theoryAssessments: 1, practicalAssessments: 0, status: 'Active' },
+  { id: 'ku8', name: 'Renewable Energy Systems', relatedCourse: 'Renewables Overview', activities: 0, theoryAssessments: 0, practicalAssessments: 0, status: 'Inactive' },
+];
+
+export const relatedCourses = [
+  'Introduction to Gas Safety',
+  'Gas Safety Fundamentals',
+  'Advanced Circuit Theory',
+  'Plumbing Basics 101',
+  'Renewables Overview',
+];
+
+// ─── QUALIFICATIONS ─────────────────────────────────────────────────────────
+
+export const qualifications: Qualification[] = [
+  {
+    id: 'q1',
+    name: 'Level 3 Gas Engineering',
+    description: 'Covers all gas safety fundamentals, combustion principles, and appliance installation for aspiring gas engineers.',
+    knowledgeUnitIds: ['ku1', 'ku4', 'ku7'],
+    status: 'Active',
+    createdAt: '10 Jan 2026',
+  },
+  {
+    id: 'q2',
+    name: 'Level 3 Electrical Installation',
+    description: 'Full qualification covering electrical safety regulations, wiring standards, and circuit theory.',
+    knowledgeUnitIds: ['ku2', 'ku5'],
+    status: 'Active',
+    createdAt: '15 Jan 2026',
+  },
+  {
+    id: 'q3',
+    name: 'Level 2 Plumbing',
+    description: 'Foundation plumbing qualification including hydraulics, pipe joining, and basic installations.',
+    knowledgeUnitIds: ['ku3', 'ku6'],
+    status: 'Draft',
+    createdAt: '20 Jan 2026',
   },
 ];

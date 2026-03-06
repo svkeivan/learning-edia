@@ -112,7 +112,8 @@ const sections: NavSection[] = [
       // { name: 'Repos', href: '/admin/repos' }, // no page yet
       // { name: 'Packages', href: '/admin/packages' }, // no page yet
       { name: 'Courses', href: '/admin/courses' },
-      // { name: 'Knowledge Units', href: '/admin/knowledge-units' }, // no page yet
+      { name: 'Knowledge Units', href: '/admin/knowledge-units' },
+      { name: 'Qualifications', href: '/admin/qualifications' },
       { name: 'Modules', href: '/admin/modules' },
       // { name: 'Form Builder', href: '/admin/form-builder' }, // no page yet
       // { name: 'Products', href: '/admin/products' }, // no page yet
@@ -184,6 +185,7 @@ export default function Sidebar() {
   const isInAssessmentCenter = pathname.startsWith('/assessment-center');
 
   const isInIqa = pathname.startsWith('/iqa');
+  const isInLearning = pathname.startsWith('/admin');
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     'Assessment Center': true,
@@ -201,7 +203,8 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (isInIqa) setOpenSections(prev => ({ ...prev, 'IQA': true }));
-  }, [isInIqa]);
+    if (isInLearning) setOpenSections(prev => ({ ...prev, 'Learning': true }));
+  }, [isInIqa, isInLearning]);
 
   const toggle = (name: string) => {
     if (name === 'Assessment Center') return;
