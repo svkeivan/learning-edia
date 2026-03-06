@@ -21,25 +21,22 @@ function EditCategoryModal({
 }: {
   category: IqaCategory;
   onClose: () => void;
-  onSave: (id: string, name: string, recheckPercent: number, riskLevel: IqaRiskLevel) => void;
+  onSave: (id: string, update: Partial<IqaCategory>) => void;
 }) {
   const [name, setName] = useState(category.name);
   const [recheckPercent, setRecheckPercent] = useState(String(category.recheckPercent));
   const [riskLevel, setRiskLevel] = useState<IqaRiskLevel>(category.riskLevel);
+  const [rechecksPerReviewer, setRechecksPerReviewer] = useState(String(category.rechecksPerReviewer));
   const [error, setError] = useState('');
 
   const handleSave = () => {
     const pct = parseInt(recheckPercent);
-    if (!name.trim()) {
-      setError('Name is required.');
-      return;
-    }
-    if (isNaN(pct) || pct < 0 || pct > 100) {
-      setError('Recheck percent must be between 0 and 100.');
-      return;
-    }
+    const cap = parseInt(rechecksPerReviewer);
+    if (!name.trim()) { setError('Name is required.'); return; }
+    if (isNaN(pct) || pct < 0 || pct > 100) { setError('Recheck percent must be 0–100.'); return; }
+    if (isNaN(cap) || cap < 1) { setError('Rechecks per reviewer must be at least 1.'); return; }
     setError('');
-    onSave(category.id, name.trim(), pct, riskLevel);
+    onSave(category.id, { name: name.trim(), recheckPercent: pct, riskLevel, rechecksPerReviewer: cap });
     onClose();
   };
 
@@ -65,16 +62,30 @@ function EditCategoryModal({
               placeholder="e.g. Low Risk"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck Percent (0–100)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={recheckPercent}
-              onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={recheckPercent}
+                onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <p className="text-xs text-gray-400 mt-1">% of submissions to IQA</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Rechecks / Reviewer</label>
+              <input
+                type="number"
+                min={1}
+                value={rechecksPerReviewer}
+                onChange={e => { setRechecksPerReviewer(e.target.value); setError(''); }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <p className="text-xs text-gray-400 mt-1">Max active per reviewer</p>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Risk Level</label>
@@ -112,22 +123,19 @@ function AddCategoryModal({
 }) {
   const [name, setName] = useState('');
   const [recheckPercent, setRecheckPercent] = useState('15');
+  const [rechecksPerReviewer, setRechecksPerReviewer] = useState('12');
   const [riskLevel, setRiskLevel] = useState<IqaRiskLevel>('Medium');
   const [error, setError] = useState('');
 
   const handleSave = () => {
     const pct = parseInt(recheckPercent);
-    if (!name.trim()) {
-      setError('Name is required.');
-      return;
-    }
-    if (isNaN(pct) || pct < 0 || pct > 100) {
-      setError('Recheck percent must be between 0 and 100.');
-      return;
-    }
+    const cap = parseInt(rechecksPerReviewer);
+    if (!name.trim()) { setError('Name is required.'); return; }
+    if (isNaN(pct) || pct < 0 || pct > 100) { setError('Recheck percent must be 0–100.'); return; }
+    if (isNaN(cap) || cap < 1) { setError('Rechecks per reviewer must be at least 1.'); return; }
     setError('');
     const id = 'cat-' + Date.now();
-    onSave({ id, name: name.trim(), recheckPercent: pct, riskLevel });
+    onSave({ id, name: name.trim(), recheckPercent: pct, riskLevel, rechecksPerReviewer: cap });
     onClose();
   };
 
@@ -153,16 +161,30 @@ function AddCategoryModal({
               placeholder="e.g. New Risk Tier"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck Percent (0–100)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={recheckPercent}
-              onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={recheckPercent}
+                onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <p className="text-xs text-gray-400 mt-1">% of submissions to IQA</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Rechecks / Reviewer</label>
+              <input
+                type="number"
+                min={1}
+                value={rechecksPerReviewer}
+                onChange={e => { setRechecksPerReviewer(e.target.value); setError(''); }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <p className="text-xs text-gray-400 mt-1">Max active per reviewer</p>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Risk Level</label>
@@ -213,8 +235,8 @@ export default function IqaCategoriesPage() {
     };
   }, []);
 
-  const handleSaveCategory = (id: string, name: string, recheckPercent: number, riskLevel: IqaRiskLevel) => {
-    updateIqaCategory(id, { name, recheckPercent, riskLevel });
+  const handleSaveCategory = (id: string, update: Partial<IqaCategory>) => {
+    updateIqaCategory(id, update);
     refresh();
   };
 
@@ -269,6 +291,7 @@ export default function IqaCategoriesPage() {
             <tr className="border-b border-gray-200 bg-gray-50/80">
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Category</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Recheck %</th>
+              <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Rechecks / Reviewer</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Risk Level</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Tutors</th>
               <th className="text-right text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Actions</th>
@@ -281,6 +304,7 @@ export default function IqaCategoriesPage() {
                   <p className="font-medium text-gray-900">{cat.name}</p>
                 </td>
                 <td className="px-5 py-4 text-sm text-gray-600">{cat.recheckPercent}%</td>
+                <td className="px-5 py-4 text-sm text-gray-600">{cat.rechecksPerReviewer}</td>
                 <td className="px-5 py-4">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     cat.riskLevel === 'Low' ? 'bg-green-100 text-green-700' :

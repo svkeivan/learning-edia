@@ -6,6 +6,8 @@ export interface IqaCategory {
   name: string;
   recheckPercent: number;
   riskLevel: IqaRiskLevel;
+  /** Max active rechecks a single reviewer in this category can handle */
+  rechecksPerReviewer: number;
 }
 
 export interface IqaTutor {
@@ -34,9 +36,9 @@ const IQA_TUTORS_STORAGE_KEY = 'iqa-tutors-overrides';
 const IQA_ADDED_TUTORS_KEY = 'iqa-added-tutors';
 
 const iqaCategoriesBase: IqaCategory[] = [
-  { id: 'cat1', name: 'Low Risk', recheckPercent: 10, riskLevel: 'Low' },
-  { id: 'cat2', name: 'Medium Risk', recheckPercent: 25, riskLevel: 'Medium' },
-  { id: 'cat3', name: 'High Risk', recheckPercent: 50, riskLevel: 'High' },
+  { id: 'cat1', name: 'Low Risk', recheckPercent: 10, riskLevel: 'Low', rechecksPerReviewer: 20 },
+  { id: 'cat2', name: 'Medium Risk', recheckPercent: 25, riskLevel: 'Medium', rechecksPerReviewer: 12 },
+  { id: 'cat3', name: 'High Risk', recheckPercent: 50, riskLevel: 'High', rechecksPerReviewer: 6 },
 ];
 
 function getCategoryOverrides(): Record<string, Partial<IqaCategory>> {
@@ -238,3 +240,49 @@ export function addIqaCheck(check: Omit<IqaCheck, 'id'> & { id?: string }): stri
 }
 
 export const iqaChecks: IqaCheck[] = iqaChecksBase;
+
+// ── Workload & auto-assignment ─────────────────────────────────────────────
+
+export interface ReviewerWorkload {
+  tutor: IqaTutor;
+  category: IqaCategory | undefined;
+  activeCount: number;
+  capacity: number;
+  remaining: number;
+}
+
+export function getReviewerWorkloads(): ReviewerWorkload[] {
+  const checks = getIqaChecks();
+  const tutors = getIqaTutors();
+  const categories = getIqaCategories();
+
+  return tutors.map(t => {
+    const category = categories.find(c => c.id === t.categoryId);
+    const capacity = category?.rechecksPerReviewer ?? 10;
+    const activeCount = checks.filter(
+      c => c.assignedTo === t.id && c.status === 'Pending',
+    ).length;
+    return { tutor: t, category, activeCount, capacity, remaining: capacity - activeCount };
+  });
+}
+
+/**
+ * Picks a reviewer automatically based on:
+ * 1. Cannot be the same tutor who graded the submission
+ * 2. Must have remaining capacity (pending rechecks < rechecksPerReviewer)
+ * 3. Picks the reviewer with the most remaining capacity (load-balanced)
+ * 4. Ties broken randomly
+ */
+export function autoAssignReviewer(gradedByTutorId: string): string | null {
+  const workloads = getReviewerWorkloads();
+  const eligible = workloads
+    .filter(w => w.tutor.id !== gradedByTutorId && w.remaining > 0)
+    .sort((a, b) => b.remaining - a.remaining);
+
+  if (eligible.length === 0) return null;
+
+  const maxRemaining = eligible[0].remaining;
+  const topTier = eligible.filter(w => w.remaining === maxRemaining);
+  const pick = topTier[Math.floor(Math.random() * topTier.length)];
+  return pick.tutor.id;
+}
