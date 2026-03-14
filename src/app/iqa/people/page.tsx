@@ -9,34 +9,25 @@ import {
   addIqaTutor,
   type IqaTutor,
 } from '@/lib/iqa-data';
-import {
-  iqaPersonnel,
-  assessors,
-  centers,
-} from '@/lib/iqa-sampling';
-import type { IqaRole, ExperienceLevel } from '@/lib/iqa-sampling';
 
-const roleColors: Record<IqaRole, string> = {
-  Controller: 'bg-purple-100 text-purple-700',
-  Assessor: 'bg-blue-100 text-blue-700',
-};
-
-const expColors: Record<ExperienceLevel, string> = {
-  New: 'bg-amber-100 text-amber-700',
-  Experienced: 'bg-green-100 text-green-700',
-};
-
-type TabType = 'reviewers' | 'iqa-personnel' | 'assessors';
+type TabType = 'assessors' | 'reviewers';
 
 export default function IqaPeoplePage() {
-  const [tutors, setTutors] = useState<IqaTutor[]>([]);
+  const [people, setPeople] = useState<IqaTutor[]>([]);
   const [categories, setCategories] = useState(() => getIqaCategories());
   const [showAddModal, setShowAddModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('reviewers');
+  const [activeTab, setActiveTab] = useState<TabType>('assessors');
+  const [maxQueueDraft, setMaxQueueDraft] = useState<Record<string, string>>({});
 
   const refresh = () => {
-    setTutors(getIqaTutors());
+    const tutors = getIqaTutors();
+    setPeople(tutors);
     setCategories(getIqaCategories());
+    const draft: Record<string, string> = {};
+    tutors.forEach(t => {
+      draft[t.id] = String(t.maxQueue ?? '');
+    });
+    setMaxQueueDraft(draft);
   };
 
   useEffect(() => {
@@ -50,13 +41,26 @@ export default function IqaPeoplePage() {
     };
   }, []);
 
-  const handleCategoryChange = (tutorId: string, categoryId: string) => {
-    updateIqaTutor(tutorId, { categoryId });
+  const handleCategoryChange = (personId: string, categoryId: string) => {
+    updateIqaTutor(personId, { categoryId });
     refresh();
   };
 
-  const handleAddPerson = (tutor: Omit<IqaTutor, 'id'>) => {
-    addIqaTutor(tutor);
+  const handleMaxQueueBlur = (personId: string) => {
+    const raw = maxQueueDraft[personId];
+    if (raw === '' || raw === undefined) {
+      updateIqaTutor(personId, { maxQueue: undefined });
+    } else {
+      const val = parseInt(raw);
+      if (!isNaN(val) && val >= 1) {
+        updateIqaTutor(personId, { maxQueue: val });
+      }
+    }
+    refresh();
+  };
+
+  const handleAddPerson = (person: Omit<IqaTutor, 'id'>) => {
+    addIqaTutor(person);
     setShowAddModal(false);
     refresh();
   };
@@ -74,7 +78,7 @@ export default function IqaPeoplePage() {
           <p className="text-sm text-gray-500 mb-1">IQA</p>
           <h1 className="text-2xl font-bold text-gray-900">People & Roles</h1>
           <p className="text-gray-500 text-sm mt-1">
-            IQA controllers, assessors, and reviewers. Independence is enforced by separating centers.
+            Manage assessors and reviewers for the IQA process.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -82,24 +86,21 @@ export default function IqaPeoplePage() {
             className="text-sm font-medium text-gray-600 border border-gray-200 px-4 py-2.5 rounded-lg hover:bg-gray-50">
             Categories
           </Link>
-          {activeTab === 'reviewers' && (
-            <button onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Add Reviewer
-            </button>
-          )}
+          <button onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add {activeTab === 'assessors' ? 'Assessor' : 'Reviewer'}
+          </button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit">
         {([
-          { key: 'reviewers' as TabType, label: 'IQA Reviewers', count: tutors.length },
-          { key: 'iqa-personnel' as TabType, label: 'IQA Personnel', count: iqaPersonnel.length },
-          { key: 'assessors' as TabType, label: 'Assessors', count: assessors.length },
+          { key: 'assessors' as TabType, label: 'Assessors' },
+          { key: 'reviewers' as TabType, label: 'Reviewers' },
         ]).map(t => (
           <button
             key={t.key}
@@ -111,13 +112,13 @@ export default function IqaPeoplePage() {
             {t.label}
             <span className={`ml-2 text-xs font-semibold px-1.5 py-0.5 rounded-full ${
               activeTab === t.key ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'
-            }`}>{t.count}</span>
+            }`}>{people.length}</span>
           </button>
         ))}
       </div>
 
-      {/* IQA Reviewers tab (existing tutors) */}
-      {activeTab === 'reviewers' && (
+      {/* Assessors tab */}
+      {activeTab === 'assessors' && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead>
@@ -129,52 +130,8 @@ export default function IqaPeoplePage() {
               </tr>
             </thead>
             <tbody>
-              {tutors.map(tutor => {
-                const category = categories.find(c => c.id === tutor.categoryId);
-                return (
-                  <tr key={tutor.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-gray-900">{tutor.name}</p>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-600">{tutor.email}</td>
-                    <td className="px-5 py-4">
-                      <select
-                        value={tutor.categoryId}
-                        onChange={e => handleCategoryChange(tutor.id, e.target.value)}
-                        className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      >
-                        {categories.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-600">
-                      {category ? `${category.recheckPercent}%` : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* IQA Personnel tab (controllers & IQA assessors) */}
-      {activeTab === 'iqa-personnel' && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50/80">
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Name</th>
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Email</th>
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Role</th>
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Center</th>
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Experience</th>
-              </tr>
-            </thead>
-            <tbody>
-              {iqaPersonnel.map(person => {
-                const center = centers.find(c => c.id === person.centerId);
+              {people.map(person => {
+                const category = categories.find(c => c.id === person.categoryId);
                 return (
                   <tr key={person.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
                     <td className="px-5 py-4">
@@ -182,63 +139,92 @@ export default function IqaPeoplePage() {
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-600">{person.email}</td>
                     <td className="px-5 py-4">
-                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${roleColors[person.role]}`}>
-                        {person.role}
-                      </span>
+                      <select
+                        value={person.categoryId}
+                        onChange={e => handleCategoryChange(person.id, e.target.value)}
+                        className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      >
+                        {categories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
                     </td>
-                    <td className="px-5 py-4 text-sm text-gray-600">{center?.name ?? '—'}</td>
                     <td className="px-5 py-4">
-                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${expColors[person.experience]}`}>
-                        {person.experience}
-                      </span>
+                      {category ? (
+                        <span className="text-sm font-semibold text-orange-600">{category.recheckPercent}%</span>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );
               })}
+              {people.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-5 py-10 text-center text-sm text-gray-400">
+                    No assessors added yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Assessors tab (people whose work gets IQA'd) */}
-      {activeTab === 'assessors' && (
+      {/* Reviewers tab */}
+      {activeTab === 'reviewers' && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50/80">
                 <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Name</th>
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Center</th>
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Experience</th>
-                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Sampling Impact</th>
+                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Email</th>
+                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Category</th>
+                <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Max Queue</th>
               </tr>
             </thead>
             <tbody>
-              {assessors.map(a => {
-                const center = centers.find(c => c.id === a.centerId);
+              {people.map(person => {
+                const category = categories.find(c => c.id === person.categoryId);
+                const placeholder = String(category?.rechecksPerReviewer ?? 10);
                 return (
-                  <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                  <tr key={person.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
                     <td className="px-5 py-4">
-                      <p className="font-medium text-gray-900">{a.name}</p>
+                      <p className="font-medium text-gray-900">{person.name}</p>
                     </td>
-                    <td className="px-5 py-4 text-sm text-gray-600">{center?.name ?? '—'}</td>
+                    <td className="px-5 py-4 text-sm text-gray-600">{person.email}</td>
+                    <td className="px-5 py-4 text-sm text-gray-600">{category?.name ?? '—'}</td>
                     <td className="px-5 py-4">
-                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${expColors[a.experience]}`}>
-                        {a.experience}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-500">
-                      {a.experience === 'New'
-                        ? '100% coverage — all units & candidates sampled'
-                        : 'Risk-based — ~40% candidate sampling'}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          value={maxQueueDraft[person.id] ?? ''}
+                          placeholder={placeholder}
+                          onChange={e => setMaxQueueDraft(prev => ({ ...prev, [person.id]: e.target.value }))}
+                          onBlur={() => handleMaxQueueBlur(person.id)}
+                          className="w-20 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        />
+                        {!maxQueueDraft[person.id] && (
+                          <span className="text-xs text-gray-400">default: {placeholder}</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
               })}
+              {people.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-5 py-10 text-center text-sm text-gray-400">
+                    No reviewers added yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-          <div className="px-5 py-3 border-t border-gray-100 bg-amber-50">
-            <p className="text-xs text-amber-700">
-              <strong>Independence rule:</strong> IQA assessor must be from a different center than the assessor being reviewed.
+          <div className="px-5 py-3 border-t border-gray-100 bg-blue-50">
+            <p className="text-xs text-blue-700">
+              <strong>Max Queue</strong> sets the maximum number of pending rechecks a reviewer can hold at once. Leave blank to use the category default.
             </p>
           </div>
         </div>
@@ -247,6 +233,7 @@ export default function IqaPeoplePage() {
       {showAddModal && (
         <AddPersonModal
           categories={categories}
+          tab={activeTab}
           onClose={() => setShowAddModal(false)}
           onSave={handleAddPerson}
         />
@@ -257,12 +244,14 @@ export default function IqaPeoplePage() {
 
 function AddPersonModal({
   categories,
+  tab,
   onClose,
   onSave,
 }: {
   categories: ReturnType<typeof getIqaCategories>;
+  tab: TabType;
   onClose: () => void;
-  onSave: (tutor: Omit<IqaTutor, 'id'>) => void;
+  onSave: (person: Omit<IqaTutor, 'id'>) => void;
 }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -278,11 +267,13 @@ function AddPersonModal({
     onClose();
   };
 
+  const label = tab === 'assessors' ? 'Assessor' : 'Reviewer';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">Add Reviewer</h2>
+          <h2 className="text-lg font-bold text-gray-900">Add {label}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -316,7 +307,7 @@ function AddPersonModal({
         </div>
         <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100">Cancel</button>
-          <button onClick={handleSave} className="px-5 py-2 text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white rounded-lg">Add Reviewer</button>
+          <button onClick={handleSave} className="px-5 py-2 text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white rounded-lg">Add {label}</button>
         </div>
       </div>
     </div>

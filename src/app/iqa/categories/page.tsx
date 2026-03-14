@@ -84,7 +84,7 @@ function EditCategoryModal({
                 onChange={e => { setRechecksPerReviewer(e.target.value); setError(''); }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
-              <p className="text-xs text-gray-400 mt-1">Max active per reviewer</p>
+              <p className="text-xs text-gray-400 mt-1">Default max queue per reviewer</p>
             </div>
           </div>
           <div>
@@ -183,7 +183,7 @@ function AddCategoryModal({
                 onChange={e => { setRechecksPerReviewer(e.target.value); setError(''); }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
               />
-              <p className="text-xs text-gray-400 mt-1">Max active per reviewer</p>
+              <p className="text-xs text-gray-400 mt-1">Default max queue per reviewer</p>
             </div>
           </div>
           <div>
@@ -215,13 +215,13 @@ function AddCategoryModal({
 
 export default function IqaCategoriesPage() {
   const [categories, setCategories] = useState<IqaCategory[]>([]);
-  const [tutors, setTutors] = useState<IqaTutor[]>([]);
+  const [assessors, setAssessors] = useState<IqaTutor[]>([]);
   const [editingCategory, setEditingCategory] = useState<IqaCategory | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
   const refresh = () => {
     setCategories(getIqaCategories());
-    setTutors(getIqaTutors());
+    setAssessors(getIqaTutors());
   };
 
   useEffect(() => {
@@ -245,7 +245,7 @@ export default function IqaCategoriesPage() {
     refresh();
   };
 
-  const tutorsByCategory = (catId: string) => tutors.filter(t => t.categoryId === catId);
+  const assessorsByCategory = (catId: string) => assessors.filter(t => t.categoryId === catId);
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -260,7 +260,7 @@ export default function IqaCategoriesPage() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <p className="text-sm text-gray-500 mb-1">IQA</p>
-          <h1 className="text-2xl font-bold text-gray-900">Tutor Categories</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Assessor Categories</h1>
           <p className="text-gray-500 text-sm mt-1">
             Manage risk categories and recheck percentages.
           </p>
@@ -291,9 +291,8 @@ export default function IqaCategoriesPage() {
             <tr className="border-b border-gray-200 bg-gray-50/80">
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Category</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Recheck %</th>
-              <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Rechecks / Reviewer</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Risk Level</th>
-              <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Tutors</th>
+              <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Assessors</th>
               <th className="text-right text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Actions</th>
             </tr>
           </thead>
@@ -304,7 +303,6 @@ export default function IqaCategoriesPage() {
                   <p className="font-medium text-gray-900">{cat.name}</p>
                 </td>
                 <td className="px-5 py-4 text-sm text-gray-600">{cat.recheckPercent}%</td>
-                <td className="px-5 py-4 text-sm text-gray-600">{cat.rechecksPerReviewer}</td>
                 <td className="px-5 py-4">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     cat.riskLevel === 'Low' ? 'bg-green-100 text-green-700' :
@@ -314,7 +312,7 @@ export default function IqaCategoriesPage() {
                     {cat.riskLevel}
                   </span>
                 </td>
-                <td className="px-5 py-4 text-sm text-gray-600">{tutorsByCategory(cat.id).length}</td>
+                <td className="px-5 py-4 text-sm text-gray-600">{assessorsByCategory(cat.id).length}</td>
                 <td className="px-5 py-4 text-right">
                   <button
                     onClick={() => setEditingCategory(cat)}
@@ -337,10 +335,10 @@ export default function IqaCategoriesPage() {
           </svg>
           <div>
             <p className="text-sm text-blue-800 font-medium">
-              {tutors.length} tutor{tutors.length !== 1 ? 's' : ''} assigned across {categories.length} categories
+              {assessors.length} assessor{assessors.length !== 1 ? 's' : ''} assigned across {categories.length} categories
             </p>
             <p className="text-xs text-blue-600 mt-0.5">
-              {categories.map(c => `${c.name}: ${tutorsByCategory(c.id).length}`).join(' · ')}
+              {categories.map(c => `${c.name}: ${assessorsByCategory(c.id).length}`).join(' · ')}
             </p>
           </div>
         </div>

@@ -15,7 +15,11 @@ export interface IqaTutor {
   name: string;
   email: string;
   categoryId: string;
+  /** Per-reviewer max queue override; falls back to category rechecksPerReviewer */
+  maxQueue?: number;
 }
+
+export type IqaOutcomeType = 'approved' | 'recheck-assessor' | 'return-module';
 
 export interface IqaCheck {
   id: string;
@@ -25,12 +29,15 @@ export interface IqaCheck {
   reviewerName?: string;
   reviewedAt?: string;
   feedback?: string;
+  /** Specific outcome when status is Approved or Rejected */
+  outcomeType?: IqaOutcomeType;
   /** Tutor assigned to review (for manual assignment) */
   assignedTo?: string;
 }
 
 const IQA_CHECKS_STORAGE_KEY = 'iqa-checks-overrides';
 const IQA_ADDED_CHECKS_KEY = 'iqa-added-checks';
+const IQA_REMOVED_CHECKS_KEY = 'iqa-removed-checks';
 const IQA_CATEGORIES_STORAGE_KEY = 'iqa-categories-overrides';
 const IQA_TUTORS_STORAGE_KEY = 'iqa-tutors-overrides';
 const IQA_ADDED_TUTORS_KEY = 'iqa-added-tutors';
@@ -210,14 +217,46 @@ export function updateIqaCheck(id: string, update: Partial<IqaCheck>) {
   }
 }
 
+function getRemovedCheckIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = sessionStorage.getItem(IQA_REMOVED_CHECKS_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function removeIqaCheck(id: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const baseIds = new Set(iqaChecksBase.map(c => c.id));
+    if (baseIds.has(id)) {
+      const removed = getRemovedCheckIds();
+      removed.add(id);
+      sessionStorage.setItem(IQA_REMOVED_CHECKS_KEY, JSON.stringify([...removed]));
+    } else {
+      const raw = sessionStorage.getItem(IQA_ADDED_CHECKS_KEY);
+      const added: IqaCheck[] = raw ? JSON.parse(raw) : [];
+      sessionStorage.setItem(IQA_ADDED_CHECKS_KEY, JSON.stringify(added.filter(c => c.id !== id)));
+    }
+    window.dispatchEvent(new CustomEvent('iqa-checks-updated'));
+  } catch {
+    // ignore
+  }
+}
+
 export function getIqaChecks(): IqaCheck[] {
   const overrides = getOverrides();
-  const base = iqaChecksBase.map(c => ({ ...c, ...overrides[c.id] }));
+  const removed = getRemovedCheckIds();
+  const base = iqaChecksBase
+    .filter(c => !removed.has(c.id))
+    .map(c => ({ ...c, ...overrides[c.id] }));
   if (typeof window === 'undefined') return base;
   try {
     const raw = sessionStorage.getItem(IQA_ADDED_CHECKS_KEY);
     const added: IqaCheck[] = raw ? JSON.parse(raw) : [];
-    return [...base, ...added.map(c => ({ ...c, ...overrides[c.id] }))];
+    return [...base, ...added.filter(c => !removed.has(c.id)).map(c => ({ ...c, ...overrides[c.id] }))];
   } catch {
     return base;
   }
@@ -241,6 +280,44 @@ export function addIqaCheck(check: Omit<IqaCheck, 'id'> & { id?: string }): stri
 
 export const iqaChecks: IqaCheck[] = iqaChecksBase;
 
+// ── Skipped submissions ────────────────────────────────────────────────────
+
+const IQA_SKIPPED_KEY = 'iqa-skipped-submissions';
+
+export function getSkippedSubmissionIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = sessionStorage.getItem(IQA_SKIPPED_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function skipSubmissions(ids: string[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    const current = getSkippedSubmissionIds();
+    ids.forEach(id => current.add(id));
+    sessionStorage.setItem(IQA_SKIPPED_KEY, JSON.stringify([...current]));
+    window.dispatchEvent(new CustomEvent('iqa-checks-updated'));
+  } catch {
+    // ignore
+  }
+}
+
+export function unskipSubmission(id: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const current = getSkippedSubmissionIds();
+    current.delete(id);
+    sessionStorage.setItem(IQA_SKIPPED_KEY, JSON.stringify([...current]));
+    window.dispatchEvent(new CustomEvent('iqa-checks-updated'));
+  } catch {
+    // ignore
+  }
+}
+
 // ── Workload & auto-assignment ─────────────────────────────────────────────
 
 export interface ReviewerWorkload {
@@ -258,7 +335,7 @@ export function getReviewerWorkloads(): ReviewerWorkload[] {
 
   return tutors.map(t => {
     const category = categories.find(c => c.id === t.categoryId);
-    const capacity = category?.rechecksPerReviewer ?? 10;
+    const capacity = t.maxQueue ?? category?.rechecksPerReviewer ?? 10;
     const activeCount = checks.filter(
       c => c.assignedTo === t.id && c.status === 'Pending',
     ).length;
