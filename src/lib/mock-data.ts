@@ -244,6 +244,36 @@ export const submissions: StudentSubmission[] = [
   },
 ];
 
+// ─── STUDENT ENROLLMENTS ─────────────────────────────────────────────────────
+
+export interface StudentEnrollment {
+  email: string;
+  package: string;
+  trade: 'Gas Engineering' | 'Electrical' | 'Plumbing';
+}
+
+export const studentEnrollments: StudentEnrollment[] = [
+  { email: 'j.wilson@email.com',    package: 'Starter Gas Engineer',           trade: 'Gas Engineering' },
+  { email: 's.ahmed@email.com',     package: 'Starter Gas Engineer',           trade: 'Gas Engineering' },
+  { email: 'm.chen@email.com',      package: 'Professional Gas Engineer',      trade: 'Gas Engineering' },
+  { email: 'e.thompson@email.com',  package: 'Professional Gas Engineer',      trade: 'Gas Engineering' },
+  { email: 'd.park@email.com',      package: 'Gas Safety Compliance',          trade: 'Gas Engineering' },
+  { email: 'l.rodriguez@email.com', package: 'Gas Safety Compliance',          trade: 'Gas Engineering' },
+  { email: 't.baker@email.com',     package: 'Professional Electrician',       trade: 'Electrical' },
+  { email: 'a.smith@email.com',     package: 'Electrical Installer (Level 2)', trade: 'Electrical' },
+  { email: 'c.diaz@email.com',      package: 'Professional Electrician',       trade: 'Electrical' },
+  { email: 'p.patel@email.com',     package: 'Electrical Installer (Level 2)', trade: 'Electrical' },
+  { email: 'r.green@email.com',     package: 'Electrical Inspection & Testing',trade: 'Electrical' },
+  { email: 'b.thomas@email.com',    package: 'Electrical Inspection & Testing',trade: 'Electrical' },
+  { email: 'o.hassan@email.com',    package: 'Master Plumber Bundle',          trade: 'Plumbing' },
+  { email: 'n.kowalski@email.com',  package: 'Plumbing Essentials',            trade: 'Plumbing' },
+  { email: 'l.murphy@email.com',    package: 'Domestic Plumbing & Heating',    trade: 'Plumbing' },
+];
+
+export function getStudentPackage(email: string): string | undefined {
+  return studentEnrollments.find(e => e.email === email)?.package;
+}
+
 // ─── RPL REQUESTS ────────────────────────────────────────────────────────────
 
 export interface EvidenceDoc {

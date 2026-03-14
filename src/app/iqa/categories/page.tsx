@@ -7,6 +7,7 @@ import {
   getIqaTutors,
   updateIqaCategory,
   addIqaCategory,
+  removeIqaCategory,
   type IqaCategory,
   type IqaTutor,
   type IqaRiskLevel,
@@ -26,17 +27,15 @@ function EditCategoryModal({
   const [name, setName] = useState(category.name);
   const [recheckPercent, setRecheckPercent] = useState(String(category.recheckPercent));
   const [riskLevel, setRiskLevel] = useState<IqaRiskLevel>(category.riskLevel);
-  const [rechecksPerReviewer, setRechecksPerReviewer] = useState(String(category.rechecksPerReviewer));
   const [error, setError] = useState('');
 
   const handleSave = () => {
     const pct = parseInt(recheckPercent);
-    const cap = parseInt(rechecksPerReviewer);
     if (!name.trim()) { setError('Name is required.'); return; }
     if (isNaN(pct) || pct < 0 || pct > 100) { setError('Recheck percent must be 0–100.'); return; }
-    if (isNaN(cap) || cap < 1) { setError('Rechecks per reviewer must be at least 1.'); return; }
     setError('');
-    onSave(category.id, { name: name.trim(), recheckPercent: pct, riskLevel, rechecksPerReviewer: cap });
+    // Keep rechecksPerReviewer unchanged (managed via People > Reviewers > Max Queue)
+    onSave(category.id, { name: name.trim(), recheckPercent: pct, riskLevel });
     onClose();
   };
 
@@ -62,30 +61,17 @@ function EditCategoryModal({
               placeholder="e.g. Low Risk"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck %</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={recheckPercent}
-                onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-              />
-              <p className="text-xs text-gray-400 mt-1">% of submissions to IQA</p>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Rechecks / Reviewer</label>
-              <input
-                type="number"
-                min={1}
-                value={rechecksPerReviewer}
-                onChange={e => { setRechecksPerReviewer(e.target.value); setError(''); }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-              />
-              <p className="text-xs text-gray-400 mt-1">Default max queue per reviewer</p>
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck %</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={recheckPercent}
+              onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+            <p className="text-xs text-gray-500 mt-1">Percentage of submissions by this category that must be IQA checked</p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Risk Level</label>
@@ -123,19 +109,17 @@ function AddCategoryModal({
 }) {
   const [name, setName] = useState('');
   const [recheckPercent, setRecheckPercent] = useState('15');
-  const [rechecksPerReviewer, setRechecksPerReviewer] = useState('12');
   const [riskLevel, setRiskLevel] = useState<IqaRiskLevel>('Medium');
   const [error, setError] = useState('');
 
   const handleSave = () => {
     const pct = parseInt(recheckPercent);
-    const cap = parseInt(rechecksPerReviewer);
     if (!name.trim()) { setError('Name is required.'); return; }
     if (isNaN(pct) || pct < 0 || pct > 100) { setError('Recheck percent must be 0–100.'); return; }
-    if (isNaN(cap) || cap < 1) { setError('Rechecks per reviewer must be at least 1.'); return; }
     setError('');
     const id = 'cat-' + Date.now();
-    onSave({ id, name: name.trim(), recheckPercent: pct, riskLevel, rechecksPerReviewer: cap });
+    // rechecksPerReviewer defaults to 10; overrideable per-reviewer in People page
+    onSave({ id, name: name.trim(), recheckPercent: pct, riskLevel, rechecksPerReviewer: 10 });
     onClose();
   };
 
@@ -161,30 +145,17 @@ function AddCategoryModal({
               placeholder="e.g. New Risk Tier"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck %</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={recheckPercent}
-                onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-              />
-              <p className="text-xs text-gray-400 mt-1">% of submissions to IQA</p>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Rechecks / Reviewer</label>
-              <input
-                type="number"
-                min={1}
-                value={rechecksPerReviewer}
-                onChange={e => { setRechecksPerReviewer(e.target.value); setError(''); }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-              />
-              <p className="text-xs text-gray-400 mt-1">Default max queue per reviewer</p>
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Recheck %</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={recheckPercent}
+              onChange={e => { setRecheckPercent(e.target.value); setError(''); }}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+            <p className="text-xs text-gray-500 mt-1">Percentage of submissions by this category that must be IQA checked</p>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Risk Level</label>
@@ -218,6 +189,7 @@ export default function IqaCategoriesPage() {
   const [assessors, setAssessors] = useState<IqaTutor[]>([]);
   const [editingCategory, setEditingCategory] = useState<IqaCategory | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const refresh = () => {
     setCategories(getIqaCategories());
@@ -242,6 +214,12 @@ export default function IqaCategoriesPage() {
 
   const handleAddCategory = (category: IqaCategory) => {
     addIqaCategory(category);
+    refresh();
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    removeIqaCategory(id);
+    setConfirmDeleteId(null);
     refresh();
   };
 
@@ -297,6 +275,23 @@ export default function IqaCategoriesPage() {
             </tr>
           </thead>
           <tbody>
+            {categories.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-5 py-12 text-center">
+                  <p className="text-gray-500 font-medium mb-1">No categories yet</p>
+                  <p className="text-sm text-gray-400">Add a category to start managing IQA risk tiers.</p>
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                  >
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add your first category
+                  </button>
+                </td>
+              </tr>
+            )}
             {categories.map(cat => (
               <tr key={cat.id} className="border-b border-gray-100 last:border-0">
                 <td className="px-5 py-4">
@@ -314,12 +309,20 @@ export default function IqaCategoriesPage() {
                 </td>
                 <td className="px-5 py-4 text-sm text-gray-600">{assessorsByCategory(cat.id).length}</td>
                 <td className="px-5 py-4 text-right">
-                  <button
-                    onClick={() => setEditingCategory(cat)}
-                    className="text-sm font-medium text-orange-600 hover:text-orange-700"
-                  >
-                    Edit
-                  </button>
+                  <div className="flex items-center gap-3 justify-end">
+                    <button
+                      onClick={() => setEditingCategory(cat)}
+                      className="text-sm font-medium text-orange-600 hover:text-orange-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(cat.id)}
+                      className="text-sm font-medium text-red-500 hover:text-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -364,6 +367,47 @@ export default function IqaCategoriesPage() {
           onSave={handleAddCategory}
         />
       )}
+
+      {confirmDeleteId && (() => {
+        const cat = categories.find(c => c.id === confirmDeleteId);
+        const memberCount = assessorsByCategory(confirmDeleteId).length;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <svg className="text-red-600" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Delete &ldquo;{cat?.name}&rdquo;?</h3>
+                  <p className="text-sm text-gray-500">This cannot be undone.</p>
+                </div>
+              </div>
+              {memberCount > 0 && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+                  {memberCount} assessor{memberCount !== 1 ? 's are' : ' is'} assigned to this category. They will no longer have a category.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(confirmDeleteId)}
+                  className="flex-1 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

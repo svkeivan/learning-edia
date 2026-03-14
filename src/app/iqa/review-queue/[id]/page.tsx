@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { getIqaChecks, getIqaTutors, getIqaCategories, updateIqaCheck } from '@/lib/iqa-data';
+import { getIqaChecks, getIqaTutors, getIqaCategories, updateIqaCheck, addFeedbackRecord } from '@/lib/iqa-data';
 import { submissions, assessments } from '@/lib/mock-data';
 import type { IqaCheckStatus, IqaOutcomeType } from '@/lib/iqa-data';
 
@@ -109,7 +109,7 @@ export default function IqaReviewDetailPage() {
   const assessment = submission ? assessments.find(a => a.id === submission.assessmentId) : null;
   const iqaTutors = getIqaTutors();
   const iqaCategories = getIqaCategories();
-  const assessor = check ? iqaTutors.find(t => t.id === check.tutorId) : null;
+  const assessor = check ? iqaTutors.find(t => t.id === check.assessorId) : null;
   const category = assessor ? iqaCategories.find(c => c.id === assessor.categoryId) : null;
   const assignedReviewer = check?.assignedTo ? iqaTutors.find(t => t.id === check.assignedTo) : null;
 
@@ -142,6 +142,20 @@ export default function IqaReviewDetailPage() {
   const isPassing = (submission.score ?? 0) >= assessment.passMark;
   const isPending = localStatus === 'Pending';
   const assessorForm = getMockAssessorForm(submission.id, isPassing);
+
+  // IQA history for this student
+  const allChecks = getIqaChecks();
+  const studentPriorChecks = allChecks.filter(
+    c => c.id !== check.id && submissions.find(s => s.id === c.submissionId)?.email === submission.email,
+  );
+  const reviewedByMe = studentPriorChecks.filter(c => c.reviewerName === REVIEWER_NAME && c.status !== 'Pending');
+  const studentPriorAssessments = studentPriorChecks
+    .map(c => {
+      const sub = submissions.find(s => s.id === c.submissionId);
+      const asmnt = sub ? assessments.find(a => a.id === sub.assessmentId) : null;
+      return { check: c, sub, asmnt };
+    })
+    .filter(r => r.sub && r.asmnt);
   const now = () => new Date().toLocaleString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
@@ -163,12 +177,23 @@ export default function IqaReviewDetailPage() {
   const handleFailRecheck = () => {
     if (!feedback.trim()) { setError('Feedback is required.'); return; }
     setError('');
+    const ts = now();
     updateIqaCheck(check.id, {
       status: 'Rejected',
       outcomeType: 'recheck-assessor',
       reviewerName: REVIEWER_NAME,
-      reviewedAt: now(),
+      reviewedAt: ts,
       feedback,
+    });
+    addFeedbackRecord({
+      assessorId: check.assessorId,
+      studentName: submission.student,
+      assessmentTitle: assessment.title,
+      outcomeType: 'recheck-assessor',
+      feedback,
+      reviewerName: REVIEWER_NAME,
+      reviewedAt: ts,
+      read: false,
     });
     setLocalStatus('Rejected');
     setLocalOutcome('recheck-assessor');
@@ -178,12 +203,23 @@ export default function IqaReviewDetailPage() {
   const handleFailReturnModule = () => {
     if (!feedback.trim()) { setError('Feedback is required.'); return; }
     setError('');
+    const ts = now();
     updateIqaCheck(check.id, {
       status: 'Rejected',
       outcomeType: 'return-module',
       reviewerName: REVIEWER_NAME,
-      reviewedAt: now(),
+      reviewedAt: ts,
       feedback,
+    });
+    addFeedbackRecord({
+      assessorId: check.assessorId,
+      studentName: submission.student,
+      assessmentTitle: assessment.title,
+      outcomeType: 'return-module',
+      feedback,
+      reviewerName: REVIEWER_NAME,
+      reviewedAt: ts,
+      read: false,
     });
     setLocalStatus('Rejected');
     setLocalOutcome('return-module');
@@ -254,6 +290,28 @@ export default function IqaReviewDetailPage() {
               </>
             )}
           </div>
+
+          {/* IQA history context */}
+          {studentPriorChecks.length > 0 && (
+            <div className="mt-3 flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
+              <svg className="text-blue-500 shrink-0 mt-0.5" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <div className="text-xs text-blue-800">
+                <span className="font-semibold">{submission.student}</span> has been IQA reviewed {studentPriorChecks.length} time{studentPriorChecks.length !== 1 ? 's' : ''} before.
+                {reviewedByMe.length > 0 && (
+                  <span className="ml-1 text-blue-600 font-medium">
+                    You reviewed {reviewedByMe.length === 1 ? 'one of these' : `${reviewedByMe.length} of these`} yourself.
+                  </span>
+                )}
+                {studentPriorAssessments.length > 0 && (
+                  <span className="ml-1 text-blue-600">
+                    ({studentPriorAssessments.map(r => r.asmnt!.title).slice(0, 2).join(', ')}{studentPriorAssessments.length > 2 ? ` +${studentPriorAssessments.length - 2} more` : ''})
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Assessor's decision ── */}

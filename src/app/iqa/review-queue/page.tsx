@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useMemo, Suspense } from 'react';
-import { getIqaChecks, getIqaTutors, getIqaCategories } from '@/lib/iqa-data';
-import { submissions, assessments } from '@/lib/mock-data';
+import { getIqaChecks, getIqaTutors, getIqaCategories, removeIqaCheck, skipSubmissions } from '@/lib/iqa-data';
+import { submissions, assessments, getStudentPackage } from '@/lib/mock-data';
 import type { IqaCheck, IqaCheckStatus } from '@/lib/iqa-data';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -22,18 +22,6 @@ const statusStyles: Record<IqaCheckStatus, string> = {
   Rejected: 'bg-red-100 text-red-700',
 };
 
-// Mock course packages: deterministic per student + trade
-const packagesByTrade: Record<string, string[]> = {
-  'Gas Engineering': ['Starter Gas Engineer', 'Professional Gas Engineer', 'Gas Safety Compliance'],
-  'Electrical': ['Electrical Installer (Level 2)', 'Professional Electrician', 'Electrical Inspection & Testing'],
-  'Plumbing': ['Plumbing Essentials', 'Master Plumber Bundle', 'Domestic Plumbing & Heating'],
-};
-
-function getCoursePackage(email: string, trade: string): string {
-  const packages = packagesByTrade[trade] ?? ['General Programme'];
-  const idx = (email.charCodeAt(0) + email.charCodeAt(email.length - 1)) % packages.length;
-  return packages[idx];
-}
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
@@ -74,10 +62,10 @@ function ReviewQueueContent() {
   const enrich = (check: IqaCheck) => {
     const submission = submissions.find(s => s.id === check.submissionId);
     const assessment = submission ? assessments.find(a => a.id === submission.assessmentId) : null;
-    const assessor = tutors.find(t => t.id === check.tutorId);
+    const assessor = tutors.find(t => t.id === check.assessorId);
     const category = assessor ? categories.find(c => c.id === assessor.categoryId) : null;
     const assignedReviewer = check.assignedTo ? tutors.find(t => t.id === check.assignedTo) : null;
-    const coursePackage = submission && assessment ? getCoursePackage(submission.email, assessment.trade) : null;
+    const coursePackage = submission ? getStudentPackage(submission.email) : null;
     return { check, submission, assessment, assessor, category, assignedReviewer, coursePackage };
   };
 
@@ -141,6 +129,15 @@ function ReviewQueueContent() {
               </div>
               <h3 className="text-gray-900 font-semibold mb-1">All caught up</h3>
               <p className="text-gray-500 text-sm">No assessments pending review.</p>
+              <Link
+                href="/iqa/assign"
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700"
+              >
+                Go to Assign for Recheck
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -220,15 +217,26 @@ function ReviewQueueContent() {
                     {/* Action */}
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-xs text-gray-400">{submission.submittedAt}</span>
-                      <Link
-                        href={`/iqa/review-queue/${check.id}`}
-                        className="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                      >
-                        Review
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                        </svg>
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            removeIqaCheck(check.id);
+                            skipSubmissions([submission.id]);
+                          }}
+                          className="text-sm font-medium text-gray-500 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                        >
+                          Skip
+                        </button>
+                        <Link
+                          href={`/iqa/review-queue/${check.id}`}
+                          className="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        >
+                          Review
+                          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                          </svg>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );
@@ -267,7 +275,7 @@ function ReviewQueueContent() {
                       const isPassing = (submission.score ?? 0) >= assessment.passMark;
 
                       return (
-                        <tr key={check.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                        <tr key={check.id} className="border-b border-gray-50 hover:bg-orange-50/30 transition-colors cursor-pointer" onClick={() => { window.location.href = `/iqa/review-queue/${check.id}`; }}>
                           {/* Student */}
                           <td className="py-3.5 px-5">
                             <p className="font-medium text-gray-900">{submission.student}</p>
