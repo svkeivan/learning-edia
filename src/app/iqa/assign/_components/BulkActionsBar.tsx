@@ -1,18 +1,17 @@
 'use client';
 
-import type { Tab, IqaTutor, ReviewerWorkload } from '../types';
+import type { Tab, IqaTutor } from '../types';
 
 interface Props {
   selectedCount: number;
   tab: Tab;
   tutors: IqaTutor[];
-  workloads: ReviewerWorkload[];
   bulkAssignTutor: string;
   showBulkAssign: boolean;
   onBulkAssignTutorChange: (v: string) => void;
   onShowBulkAssign: (show: boolean) => void;
   onBulkAutoAdd: () => void;
-  onRequestExclude: () => void;
+  onRequestSkip: () => void;
   onRequestUnassign: () => void;
   onBulkAssign: () => void;
   onHistoryModal: () => void;
@@ -20,10 +19,10 @@ interface Props {
 }
 
 export function BulkActionsBar({
-  selectedCount, tab, tutors, workloads,
+  selectedCount, tab, tutors,
   bulkAssignTutor, showBulkAssign,
   onBulkAssignTutorChange, onShowBulkAssign,
-  onBulkAutoAdd, onRequestExclude, onRequestUnassign,
+  onBulkAutoAdd, onRequestSkip, onRequestUnassign,
   onBulkAssign, onHistoryModal, onClearSelection,
 }: Props) {
   const reviewerTutors = tutors.filter(t => t.role !== 'assessor');
@@ -42,10 +41,10 @@ export function BulkActionsBar({
             Add to Queue
           </button>
           <button
-            onClick={onRequestExclude}
+            onClick={onRequestSkip}
             className="text-sm font-medium bg-white border border-orange-300 text-orange-700 hover:bg-orange-100 px-3.5 py-1.5 rounded-lg transition-colors"
           >
-            Exclude
+            Skip
           </button>
         </>
       )}
@@ -77,14 +76,11 @@ export function BulkActionsBar({
                 className="text-sm border border-orange-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
               >
                 <option value="">Select reviewer...</option>
-                {reviewerTutors.map(t => {
-                  const wl = workloads.find(w => w.tutor.id === t.id);
-                  return (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({wl ? `${wl.activeCount}/${wl.capacity}` : '—'})
-                    </option>
-                  );
-                })}
+                {reviewerTutors.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
               </select>
               <button
                 onClick={onBulkAssign}

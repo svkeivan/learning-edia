@@ -1,9 +1,9 @@
-import type { IqaCheck, IqaCheckStatus, IqaTutor, IqaCategory, ReviewerWorkload } from '@/lib/iqa-data';
+import type { IqaCheck, IqaCheckStatus, IqaTutor, IqaCategory } from '@/lib/iqa-data';
 import type { StudentSubmission } from '@/lib/mock-data';
 import { assessments } from '@/lib/mock-data';
 
 export type Tab = 'all' | 'queue' | 'not-queue';
-export type SortKey = 'student' | 'package' | 'assessment' | 'result' | 'gradedBy';
+export type SortKey = 'student' | 'package' | 'assessment' | 'result' | 'assessor' | 'reviewer' | 'cohort';
 export type Assessment = (typeof assessments)[number];
 
 export const PAGE_SIZE = 20;
@@ -28,6 +28,7 @@ export interface EnrichedSubmission {
   assignedReviewer: IqaTutor | undefined;
   category: IqaCategory | undefined;
   isSkipped: boolean;
+  cohort: string | undefined;
 }
 
-export type { IqaCheck, IqaTutor, IqaCategory, ReviewerWorkload };
+export type { IqaCheck, IqaTutor, IqaCategory };

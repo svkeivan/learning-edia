@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { getStudentPackage } from '@/lib/mock-data';
-import type { Tab, SortKey, EnrichedSubmission, IqaTutor, ReviewerWorkload } from '../types';
+import type { Tab, SortKey, EnrichedSubmission, IqaTutor } from '../types';
 import { tradeColors, statusStyles } from '../types';
 
 interface Props {
@@ -18,7 +17,6 @@ interface Props {
   filteredCount: number;
   hasActiveFilters: boolean;
   tutors: IqaTutor[];
-  workloads: ReviewerWorkload[];
   onToggleAll: () => void;
   onToggleOne: (id: string) => void;
   onSortClick: (key: SortKey) => void;
@@ -26,8 +24,8 @@ interface Props {
   onClearFilters: () => void;
   onSwitchTab: (tab: Tab) => void;
   onAddToQueue: (submissionId: string) => void;
-  onExclude: (submissionId: string) => void;
-  onAssignReviewer: (submissionId: string, tutorId: string) => void;
+  onSkip: (submissionId: string) => void;
+  onRequestAssign: (submissionId: string) => void;
 }
 
 function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey | null; sortDir: 'asc' | 'desc' }) {
@@ -57,23 +55,12 @@ function SortableTh({ label, col, sortKey, sortDir, onSort }: {
 export function AssignTable({
   tab, displayItems, selected, allSelected,
   sortKey, sortDir, allPage, totalAllPages, filteredCount, hasActiveFilters,
-  tutors, workloads,
+  tutors,
   onToggleAll, onToggleOne, onSortClick, onPageChange,
   onClearFilters, onSwitchTab,
-  onAddToQueue, onExclude, onAssignReviewer,
+  onAddToQueue, onSkip, onRequestAssign,
 }: Props) {
-  const [inlineAssigningId, setInlineAssigningId] = useState<string | null>(null);
-  const [inlineSelectedTutor, setInlineSelectedTutor] = useState('');
-
   const showCheckboxes = tab !== 'all';
-  const reviewerTutors = tutors.filter(t => t.role !== 'assessor');
-
-  const cancelInline = () => { setInlineAssigningId(null); setInlineSelectedTutor(''); };
-
-  const handleSaveInline = (submissionId: string) => {
-    onAssignReviewer(submissionId, inlineSelectedTutor);
-    cancelInline();
-  };
 
   if (displayItems.length === 0) {
     return (
@@ -85,9 +72,9 @@ export function AssignTable({
           {hasActiveFilters
             ? 'No items match your filters.'
             : tab === 'queue'
-              ? 'No assessments in the IQA queue yet.'
+              ? 'No assessments awaiting reviewer assignment.'
               : tab === 'not-queue'
-                ? 'All graded assessments have been queued or excluded.'
+                ? 'All graded assessments have been queued or skipped.'
                 : 'No graded assessments found.'}
         </p>
         {hasActiveFilters && (
@@ -128,19 +115,17 @@ export function AssignTable({
               <SortableTh label="Student" col="student" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
               <SortableTh label="Course Package" col="package" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
               <SortableTh label="Assessment" col="assessment" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
-              <SortableTh label="Graded By" col="gradedBy" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
+              <SortableTh label="Cohort" col="cohort" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
+              <SortableTh label="Assessor" col="assessor" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
               {tab !== 'all' && (
                 <th className="py-3 px-4 text-left font-medium text-gray-500">Category</th>
               )}
               <SortableTh label="Result" col="result" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
-              {tab === 'queue' && (
-                <>
-                  <th className="py-3 px-4 text-left font-medium text-gray-500">Status</th>
-                  <th className="py-3 px-4 text-left font-medium text-gray-500">Reviewer</th>
-                </>
-              )}
               {tab === 'all' && (
-                <th className="py-3 px-4 text-left font-medium text-gray-500">IQA Status</th>
+                <>
+                  <SortableTh label="Reviewer" col="reviewer" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
+                  <th className="py-3 px-4 text-left font-medium text-gray-500">IQA Status</th>
+                </>
               )}
               {tab !== 'all' && (
                 <th className="py-3 px-4 text-right font-medium text-gray-500">Actions</th>
@@ -149,8 +134,7 @@ export function AssignTable({
           </thead>
           <tbody>
             {displayItems.map(item => {
-              const { submission: sub, assessment, assessor, check, assignedReviewer, category, isSkipped } = item;
-              const isAssigning = inlineAssigningId === sub.id;
+              const { submission: sub, assessment, assessor, check, assignedReviewer, category, isSkipped, cohort } = item;
 
               return (
                 <tr
@@ -188,10 +172,15 @@ export function AssignTable({
                     <p className="text-xs text-gray-400">{assessment?.module}</p>
                   </td>
 
-                  {/* Graded By */}
+                  {/* Cohort */}
+                  <td className="py-3 px-4 text-sm text-gray-700">
+                    {cohort ?? <span className="text-gray-400">—</span>}
+                  </td>
+
+                  {/* Assessor */}
                   <td className="py-3 px-4 text-gray-700 text-sm">{assessor?.name ?? '—'}</td>
 
-                  {/* Category */}
+                  {/* Category (non-All tabs) */}
                   {tab !== 'all' && (
                     <td className="py-3 px-4">
                       {category ? (
@@ -215,84 +204,49 @@ export function AssignTable({
                     </span>
                   </td>
 
-                  {/* Queue tab: status + inline reviewer assign */}
-                  {tab === 'queue' && (
+                  {/* All tab: Reviewer + IQA status */}
+                  {tab === 'all' && (
                     <>
+                      <td className="py-3 px-4 text-sm text-gray-700">
+                        {assignedReviewer ? assignedReviewer.name : <span className="text-gray-400">—</span>}
+                      </td>
                       <td className="py-3 px-4">
-                        {check && (
+                        {check ? (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusStyles[check.status]}`}>
                             {check.status}
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {isAssigning ? (
-                          <div className="flex items-center gap-1.5">
-                            <select
-                              value={inlineSelectedTutor}
-                              onChange={e => setInlineSelectedTutor(e.target.value)}
-                              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300 w-36"
-                            >
-                              <option value="">Any</option>
-                              {reviewerTutors.map(t => {
-                                const wl = workloads.find(w => w.tutor.id === t.id);
-                                return (
-                                  <option key={t.id} value={t.id}>
-                                    {t.name} ({wl ? `${wl.activeCount}/${wl.capacity}` : '—'})
-                                  </option>
-                                );
-                              })}
-                            </select>
-                            <button
-                              onClick={() => handleSaveInline(sub.id)}
-                              className="text-xs font-semibold bg-orange-600 hover:bg-orange-700 text-white px-2.5 py-1.5 rounded-lg"
-                            >
-                              Save
-                            </button>
-                            <button onClick={cancelInline} className="text-xs text-gray-400 hover:text-gray-600 px-1">
-                              &times;
-                            </button>
-                          </div>
+                        ) : isSkipped ? (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                            Skipped
+                          </span>
                         ) : (
-                          <button
-                            onClick={() => { setInlineAssigningId(sub.id); setInlineSelectedTutor(check?.assignedTo ?? ''); }}
-                            className="text-xs text-orange-600 hover:text-orange-700 font-medium"
-                          >
-                            {assignedReviewer ? assignedReviewer.name : check?.assignedTo === 'admin' ? 'Admin User' : 'Assign'}
-                          </button>
+                          <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
                     </>
-                  )}
-
-                  {/* All tab: IQA status */}
-                  {tab === 'all' && (
-                    <td className="py-3 px-4">
-                      {check ? (
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusStyles[check.status]}`}>
-                          {check.status}
-                        </span>
-                      ) : isSkipped ? (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                          Excluded
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
                   )}
 
                   {/* Actions */}
                   {tab !== 'all' && (
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center gap-2 justify-end">
-                        {tab === 'queue' && check && (
-                          <Link
-                            href={`/iqa/review-queue/${check.id}`}
-                            className="text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-                          >
-                            Review
-                          </Link>
+                        {tab === 'queue' && (
+                          <>
+                            <button
+                              onClick={() => onRequestAssign(sub.id)}
+                              className="text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Assign
+                            </button>
+                            {check && (
+                              <Link
+                                href={`/iqa/review-queue/${check.id}`}
+                                className="text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                Review
+                              </Link>
+                            )}
+                          </>
                         )}
                         {tab === 'not-queue' && (
                           <>
@@ -303,10 +257,10 @@ export function AssignTable({
                               Add to Queue
                             </button>
                             <button
-                              onClick={() => onExclude(sub.id)}
+                              onClick={() => onSkip(sub.id)}
                               className="text-xs font-medium text-gray-500 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors"
                             >
-                              Exclude
+                              Skip
                             </button>
                           </>
                         )}

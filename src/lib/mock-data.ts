@@ -242,6 +242,52 @@ export const submissions: StudentSubmission[] = [
     submittedAt: '16 Feb 2026, 11:30', score: 71, status: 'Pass', attemptNumber: 1, timeTaken: '38 min', gradedBy: 't6',
     answers: [{ type: 'file', fileName: 'KVL_Assessment_Anna_Smith.pdf', fileType: 'PDF', size: '1.3 MB' }],
   },
+
+  // a4 – Health & Safety Induction (graded, mixed IQA states)
+  {
+    id: 's18', assessmentId: 'a4', student: 'James Wilson', email: 'j.wilson@email.com',
+    submittedAt: '17 Feb 2026, 09:15', score: 88, status: 'Pass', attemptNumber: 1, timeTaken: '14 min', gradedBy: 't1',
+    answers: [{ type: 'file', fileName: 'HS_Induction_James_Wilson.pdf', fileType: 'PDF', size: '0.6 MB' }],
+  },
+  {
+    id: 's19', assessmentId: 'a4', student: 'Sarah Ahmed', email: 's.ahmed@email.com',
+    submittedAt: '17 Feb 2026, 10:00', score: 76, status: 'Pass', attemptNumber: 1, timeTaken: '16 min', gradedBy: 't1',
+    answers: [{ type: 'file', fileName: 'HS_Induction_Sarah_Ahmed.pdf', fileType: 'PDF', size: '0.5 MB' }],
+  },
+  {
+    id: 's20', assessmentId: 'a4', student: 'Mike Chen', email: 'm.chen@email.com',
+    submittedAt: '17 Feb 2026, 11:20', score: 62, status: 'Fail', attemptNumber: 1, timeTaken: '18 min', gradedBy: 't3',
+    answers: [{ type: 'file', fileName: 'HS_Induction_Mike_Chen.pdf', fileType: 'PDF', size: '0.7 MB' }],
+  },
+  {
+    id: 's21', assessmentId: 'a4', student: 'Emma Thompson', email: 'e.thompson@email.com',
+    submittedAt: '17 Feb 2026, 13:45', score: 91, status: 'Pass', attemptNumber: 1, timeTaken: '12 min', gradedBy: 't3',
+    answers: [{ type: 'file', fileName: 'HS_Induction_Emma_Thompson.pdf', fileType: 'PDF', size: '0.4 MB' }],
+  },
+
+  // a3 – Plumbing Standards (additional graded, no IQA check yet)
+  {
+    id: 's22', assessmentId: 'a3', student: 'David Park', email: 'd.park@email.com',
+    submittedAt: '18 Feb 2026, 09:30', score: 69, status: 'Fail', attemptNumber: 1, timeTaken: '40 min', gradedBy: 't5',
+    answers: [{ type: 'file', fileName: 'Plumbing_Assessment_David_Park.pdf', fileType: 'PDF', size: '1.1 MB' }],
+  },
+  {
+    id: 's23', assessmentId: 'a3', student: 'Lisa Rodriguez', email: 'l.rodriguez@email.com',
+    submittedAt: '18 Feb 2026, 10:15', score: 82, status: 'Pass', attemptNumber: 1, timeTaken: '36 min', gradedBy: 't5',
+    answers: [{ type: 'file', fileName: 'Plumbing_Assessment_Lisa_Rodriguez.pdf', fileType: 'PDF', size: '1.0 MB' }],
+  },
+
+  // a5 – Circuit Analysis (additional graded, no IQA check yet)
+  {
+    id: 's24', assessmentId: 'a5', student: 'Carlos Diaz', email: 'c.diaz@email.com',
+    submittedAt: '18 Feb 2026, 14:00', score: 74, status: 'Pass', attemptNumber: 1, timeTaken: '42 min', gradedBy: 't4',
+    answers: [{ type: 'file', fileName: 'Circuit_Analysis_Carlos_Diaz.pdf', fileType: 'PDF', size: '1.6 MB' }],
+  },
+  {
+    id: 's25', assessmentId: 'a5', student: 'Priya Patel', email: 'p.patel@email.com',
+    submittedAt: '18 Feb 2026, 15:30', score: 65, status: 'Fail', attemptNumber: 1, timeTaken: '50 min', gradedBy: 't4',
+    answers: [{ type: 'file', fileName: 'Circuit_Analysis_Priya_Patel.pdf', fileType: 'PDF', size: '1.2 MB' }],
+  },
 ];
 
 // ─── STUDENT ENROLLMENTS ─────────────────────────────────────────────────────
@@ -272,6 +318,17 @@ export const studentEnrollments: StudentEnrollment[] = [
 
 export function getStudentPackage(email: string): string | undefined {
   return studentEnrollments.find(e => e.email === email)?.package;
+}
+
+export function getStudentCohort(email: string): string | undefined {
+  for (const event of attendanceEvents) {
+    for (const session of event.sessions) {
+      if (session.students.some(s => s.email === email)) {
+        return event.course;
+      }
+    }
+  }
+  return undefined;
 }
 
 // ─── RPL REQUESTS ────────────────────────────────────────────────────────────

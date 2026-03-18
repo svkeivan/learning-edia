@@ -6,7 +6,6 @@ import {
   getIqaChecks,
   getIqaTutors,
   getIqaCategories,
-  getReviewerWorkloads,
   getSkippedSubmissionIds,
   skipSubmissions,
   unskipSubmission,
@@ -15,17 +14,16 @@ import {
   updateIqaCheck,
   removeIqaCheck,
 } from '@/lib/iqa-data';
-import { submissions, assessments, getStudentPackage } from '@/lib/mock-data';
+import { submissions, assessments, getStudentPackage, getStudentCohort } from '@/lib/mock-data';
 
-import { WorkloadPanel } from './_components/WorkloadPanel';
-import { CoveragePanel } from './_components/CoveragePanel';
 import { FiltersBar } from './_components/FiltersBar';
 import { BulkActionsBar } from './_components/BulkActionsBar';
 import { AssignTable } from './_components/AssignTable';
 import { IqaHistoryModal } from './_components/IqaHistoryModal';
 import { ConfirmDialog } from './_components/ConfirmDialog';
+import { AssignReviewerModal } from './_components/AssignReviewerModal';
 
-import type { Tab, SortKey, EnrichedSubmission, IqaCheck, IqaTutor, IqaCategory, ReviewerWorkload } from './types';
+import type { Tab, SortKey, EnrichedSubmission, IqaCheck, IqaTutor, IqaCategory } from './types';
 import { PAGE_SIZE } from './types';
 import type { StudentSubmission } from '@/lib/mock-data';
 
@@ -34,7 +32,6 @@ export default function IqaAssignPage() {
   const [checks, setChecks] = useState<IqaCheck[]>([]);
   const [tutors, setTutors] = useState<IqaTutor[]>([]);
   const [categories, setCategories] = useState<IqaCategory[]>([]);
-  const [workloads, setWorkloads] = useState<ReviewerWorkload[]>([]);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [mounted, setMounted] = useState(false);
 
@@ -43,9 +40,9 @@ export default function IqaAssignPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState('');
   const [allPage, setAllPage] = useState(1);
-  const [workloadCollapsed, setWorkloadCollapsed] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [confirmBulkAction, setConfirmBulkAction] = useState<'exclude' | 'unassign' | null>(null);
+  const [confirmBulkAction, setConfirmBulkAction] = useState<'skip' | 'unassign' | null>(null);
+  const [assignModalSubmissionId, setAssignModalSubmissionId] = useState<string | null>(null);
 
   // Bulk assign
   const [bulkAssignTutor, setBulkAssignTutor] = useState('');
@@ -58,6 +55,8 @@ export default function IqaAssignPage() {
   const [filterTrade, setFilterTrade] = useState('');
   const [filterExam, setFilterExam] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterReviewer, setFilterReviewer] = useState('');
+  const [filterCohort, setFilterCohort] = useState('');
 
   // Sorting
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -68,7 +67,6 @@ export default function IqaAssignPage() {
     setChecks(getIqaChecks());
     setTutors(getIqaTutors());
     setCategories(getIqaCategories());
-    setWorkloads(getReviewerWorkloads());
     setSkipped(getSkippedSubmissionIds());
   }, []);
 
@@ -93,7 +91,6 @@ export default function IqaAssignPage() {
     }
   }, [toast]);
 
-  // Reset selection + modals when tab changes
   useEffect(() => {
     setSelected(new Set());
     setShowBulkAssign(false);
@@ -106,11 +103,6 @@ export default function IqaAssignPage() {
     [],
   );
 
-  const submissionIdsInQueue = useMemo(
-    () => new Set(checks.map(c => c.submissionId)),
-    [checks],
-  );
-
   const enrich = useCallback(
     (sub: StudentSubmission): EnrichedSubmission => {
       const assessment = assessments.find(a => a.id === sub.assessmentId);
@@ -119,21 +111,27 @@ export default function IqaAssignPage() {
       const assignedReviewer = check?.assignedTo ? tutors.find(t => t.id === check.assignedTo) : undefined;
       const category = assessor ? categories.find(c => c.id === assessor.categoryId) : undefined;
       const isSkipped = skipped.has(sub.id);
-      return { submission: sub, assessment, assessor, check, assignedReviewer, category, isSkipped };
+      const cohort = getStudentCohort(sub.email);
+      return { submission: sub, assessment, assessor, check, assignedReviewer, category, isSkipped, cohort };
     },
     [checks, tutors, categories, skipped],
   );
 
   const allItems = useMemo(() => gradedSubmissions.map(enrich), [gradedSubmissions, enrich]);
 
+  const submissionIdsWithCheck = useMemo(
+    () => new Set(checks.map(c => c.submissionId)),
+    [checks],
+  );
+
   const inQueueItems = useMemo(
-    () => gradedSubmissions.filter(s => submissionIdsInQueue.has(s.id)).map(enrich),
-    [gradedSubmissions, submissionIdsInQueue, enrich],
+    () => allItems.filter(i => i.check && i.check.status === 'Pending' && !i.check.assignedTo),
+    [allItems],
   );
 
   const notInQueueItems = useMemo(
-    () => gradedSubmissions.filter(s => !submissionIdsInQueue.has(s.id) && !skipped.has(s.id)).map(enrich),
-    [gradedSubmissions, submissionIdsInQueue, skipped, enrich],
+    () => gradedSubmissions.filter(s => !submissionIdsWithCheck.has(s.id) && !skipped.has(s.id)).map(enrich),
+    [gradedSubmissions, submissionIdsWithCheck, skipped, enrich],
   );
 
   const currentItems = tab === 'all' ? allItems : tab === 'queue' ? inQueueItems : notInQueueItems;
@@ -145,7 +143,13 @@ export default function IqaAssignPage() {
       if (filterCategory && item.category?.id !== filterCategory) return false;
       if (filterTrade && item.assessment?.trade !== filterTrade) return false;
       if (filterExam && item.assessment?.id !== filterExam) return false;
+      if (filterReviewer && item.assignedReviewer?.id !== filterReviewer) return false;
+      if (filterCohort && item.cohort !== filterCohort) return false;
       if (tab === 'queue' && filterStatus && item.check?.status !== filterStatus) return false;
+      if (tab === 'all' && filterStatus) {
+        const displayStatus = item.check ? item.check.status : item.isSkipped ? 'Skipped' : 'None';
+        if (filterStatus !== displayStatus) return false;
+      }
       if (q && !item.submission.student.toLowerCase().includes(q) && !item.submission.email.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -156,12 +160,14 @@ export default function IqaAssignPage() {
         else if (sortKey === 'package') { va = getStudentPackage(a.submission.email) ?? ''; vb = getStudentPackage(b.submission.email) ?? ''; }
         else if (sortKey === 'assessment') { va = a.assessment?.title ?? ''; vb = b.assessment?.title ?? ''; }
         else if (sortKey === 'result') { va = a.submission.status ?? ''; vb = b.submission.status ?? ''; }
-        else if (sortKey === 'gradedBy') { va = a.assessor?.name ?? ''; vb = b.assessor?.name ?? ''; }
+        else if (sortKey === 'assessor') { va = a.assessor?.name ?? ''; vb = b.assessor?.name ?? ''; }
+        else if (sortKey === 'reviewer') { va = a.assignedReviewer?.name ?? ''; vb = b.assignedReviewer?.name ?? ''; }
+        else if (sortKey === 'cohort') { va = a.cohort ?? ''; vb = b.cohort ?? ''; }
         return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       });
     }
     return list;
-  }, [currentItems, filterAssessor, filterCategory, filterTrade, filterExam, filterStatus, filterStudent, tab, sortKey, sortDir]);
+  }, [currentItems, filterAssessor, filterCategory, filterTrade, filterExam, filterStatus, filterStudent, filterReviewer, filterCohort, tab, sortKey, sortDir]);
 
   const uniqueAssessors = useMemo(() => {
     const ids = new Set(currentItems.map(i => i.assessor?.id).filter(Boolean));
@@ -178,12 +184,22 @@ export default function IqaAssignPage() {
     return assessments.filter(a => ids.has(a.id));
   }, [currentItems]);
 
+  const uniqueReviewers = useMemo(() => {
+    const ids = new Set(currentItems.map(i => i.assignedReviewer?.id).filter(Boolean));
+    return tutors.filter(t => ids.has(t.id));
+  }, [currentItems, tutors]);
+
+  const uniqueCohorts = useMemo(() => {
+    const set = new Set(currentItems.map(i => i.cohort).filter(Boolean) as string[]);
+    return [...set].sort();
+  }, [currentItems]);
+
   const totalAllPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const displayItems = tab === 'all'
     ? filteredItems.slice((allPage - 1) * PAGE_SIZE, allPage * PAGE_SIZE)
     : filteredItems;
 
-  useEffect(() => { setAllPage(1); }, [filterAssessor, filterCategory, filterTrade, filterExam, filterStudent, tab]);
+  useEffect(() => { setAllPage(1); }, [filterAssessor, filterCategory, filterTrade, filterExam, filterStudent, filterReviewer, filterCohort, tab]);
 
   const allSelected = displayItems.length > 0 && displayItems.every(i => selected.has(i.submission.id));
 
@@ -193,7 +209,7 @@ export default function IqaAssignPage() {
   );
 
   // ── Filters helpers ───────────────────────────────────────────────────────
-  const hasActiveFilters = !!(filterAssessor || filterCategory || filterTrade || filterExam || filterStatus || filterStudent);
+  const hasActiveFilters = !!(filterAssessor || filterCategory || filterTrade || filterExam || filterStatus || filterStudent || filterReviewer || filterCohort);
 
   const clearFilters = () => {
     setFilterAssessor('');
@@ -202,6 +218,8 @@ export default function IqaAssignPage() {
     setFilterExam('');
     setFilterStatus('');
     setFilterStudent('');
+    setFilterReviewer('');
+    setFilterCohort('');
   };
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -221,14 +239,14 @@ export default function IqaAssignPage() {
     refresh();
   };
 
-  const handleExclude = (submissionId: string) => {
+  const handleSkipSingle = (submissionId: string) => {
     skipSubmissions([submissionId]);
-    setToast('Assessment excluded from IQA queue');
+    setToast('Assessment skipped');
     refresh();
   };
 
   const handleAssignReviewer = (submissionId: string, tutorId: string) => {
-    const item = currentItems.find(i => i.submission.id === submissionId);
+    const item = allItems.find(i => i.submission.id === submissionId);
     if (!item) return;
     if (item.check) {
       updateIqaCheck(item.check.id, { assignedTo: tutorId || undefined });
@@ -236,13 +254,28 @@ export default function IqaAssignPage() {
       addIqaCheck({ submissionId, assessorId: item.submission.gradedBy!, status: 'Pending', assignedTo: tutorId || undefined });
     }
     setToast(`Assigned to ${tutors.find(t => t.id === tutorId)?.name ?? 'any reviewer'}`);
+    setAssignModalSubmissionId(null);
+    refresh();
+  };
+
+  const handleModalBulkAssign = (submissionIds: string[], tutorId: string) => {
+    let count = 0;
+    for (const id of submissionIds) {
+      const item = allItems.find(i => i.submission.id === id);
+      if (!item?.check) continue;
+      updateIqaCheck(item.check.id, { assignedTo: tutorId });
+      count++;
+    }
+    setToast(`Assigned ${count} item${count !== 1 ? 's' : ''} to ${tutors.find(t => t.id === tutorId)?.name ?? 'reviewer'}`);
+    setShowHistoryModal(false);
+    setSelected(new Set());
     refresh();
   };
 
   const handleModalSkip = (submissionId: string, checkId: string) => {
     removeIqaCheck(checkId);
     skipSubmissions([submissionId]);
-    setToast('Assessment removed from queue and excluded');
+    setToast('Assessment removed from queue and skipped');
     refresh();
   };
 
@@ -255,7 +288,7 @@ export default function IqaAssignPage() {
   const handleBulkAutoAdd = () => {
     let count = 0;
     selected.forEach(id => {
-      if (!submissionIdsInQueue.has(id)) { addToQueueWithAutoAssign(id); count++; }
+      if (!submissionIdsWithCheck.has(id)) { addToQueueWithAutoAssign(id); count++; }
     });
     setToast(`Added ${count} item${count !== 1 ? 's' : ''} to queue with auto-assignment`);
     setSelected(new Set());
@@ -265,7 +298,7 @@ export default function IqaAssignPage() {
   const handleBulkSkip = () => {
     const ids = [...selected];
     skipSubmissions(ids);
-    setToast(`Excluded ${ids.length} assessment${ids.length !== 1 ? 's' : ''} from IQA queue`);
+    setToast(`Skipped ${ids.length} assessment${ids.length !== 1 ? 's' : ''}`);
     setSelected(new Set());
     setConfirmBulkAction(null);
     refresh();
@@ -357,16 +390,6 @@ export default function IqaAssignPage() {
         </div>
       )}
 
-      {/* Workload + Coverage panels */}
-      <WorkloadPanel
-        workloads={workloads}
-        categories={categories}
-        filterCategory={filterCategory}
-        collapsed={workloadCollapsed}
-        onToggle={() => setWorkloadCollapsed(c => !c)}
-      />
-      <CoveragePanel categories={categories} tutors={tutors} allItems={allItems} />
-
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-5 w-fit">
         {([
@@ -388,8 +411,9 @@ export default function IqaAssignPage() {
       </div>
 
       {/* Tab description */}
-      {tab === 'all' && <p className="text-xs text-gray-500 mb-4">All graded assessments. Shows IQA status for each.</p>}
-      {tab === 'not-queue' && <p className="text-xs text-gray-500 mb-4">Graded assessments eligible for IQA — not yet queued or excluded. Select to add to queue or exclude.</p>}
+      {tab === 'all' && <p className="text-xs text-gray-500 mb-4">All graded assessments with IQA status, reviewer, and cohort information.</p>}
+      {tab === 'queue' && <p className="text-xs text-gray-500 mb-4">Pending assessments awaiting reviewer assignment. Once assigned, they move to All.</p>}
+      {tab === 'not-queue' && <p className="text-xs text-gray-500 mb-4">Graded assessments eligible for IQA — not yet queued or skipped. Select to add to queue or skip.</p>}
 
       {/* Filters */}
       <FiltersBar
@@ -400,9 +424,13 @@ export default function IqaAssignPage() {
         filterTrade={filterTrade}
         filterExam={filterExam}
         filterStatus={filterStatus}
+        filterReviewer={filterReviewer}
+        filterCohort={filterCohort}
         uniqueAssessors={uniqueAssessors}
         uniqueCategories={uniqueCategories}
         uniqueExams={uniqueExams}
+        uniqueReviewers={uniqueReviewers}
+        uniqueCohorts={uniqueCohorts}
         filteredCount={filteredItems.length}
         totalCount={currentItems.length}
         hasActiveFilters={hasActiveFilters}
@@ -412,6 +440,8 @@ export default function IqaAssignPage() {
         onTradeChange={setFilterTrade}
         onExamChange={setFilterExam}
         onStatusChange={setFilterStatus}
+        onReviewerChange={setFilterReviewer}
+        onCohortChange={setFilterCohort}
         onClearFilters={clearFilters}
       />
 
@@ -421,13 +451,12 @@ export default function IqaAssignPage() {
           selectedCount={selected.size}
           tab={tab}
           tutors={tutors}
-          workloads={workloads}
           bulkAssignTutor={bulkAssignTutor}
           showBulkAssign={showBulkAssign}
           onBulkAssignTutorChange={setBulkAssignTutor}
           onShowBulkAssign={setShowBulkAssign}
           onBulkAutoAdd={handleBulkAutoAdd}
-          onRequestExclude={() => setConfirmBulkAction('exclude')}
+          onRequestSkip={() => setConfirmBulkAction('skip')}
           onRequestUnassign={() => setConfirmBulkAction('unassign')}
           onBulkAssign={handleBulkAssign}
           onHistoryModal={() => setShowHistoryModal(true)}
@@ -448,7 +477,6 @@ export default function IqaAssignPage() {
         filteredCount={filteredItems.length}
         hasActiveFilters={hasActiveFilters}
         tutors={tutors}
-        workloads={workloads}
         onToggleAll={() => {
           if (allSelected) setSelected(new Set());
           else setSelected(new Set(displayItems.map(i => i.submission.id)));
@@ -463,14 +491,14 @@ export default function IqaAssignPage() {
         onClearFilters={clearFilters}
         onSwitchTab={setTab}
         onAddToQueue={handleAddToQueue}
-        onExclude={handleExclude}
-        onAssignReviewer={handleAssignReviewer}
+        onSkip={handleSkipSingle}
+        onRequestAssign={setAssignModalSubmissionId}
       />
 
-      {/* Excluded counter (All tab) */}
+      {/* Skipped counter (All tab) */}
       {tab === 'all' && skipped.size > 0 && (
         <p className="text-xs text-gray-400 mt-3">
-          {skipped.size} assessment{skipped.size !== 1 ? 's' : ''} excluded from IQA queue.{' '}
+          {skipped.size} assessment{skipped.size !== 1 ? 's' : ''} skipped from IQA queue.{' '}
           <button
             onClick={() => { [...skipped].forEach(id => unskipSubmission(id)); refresh(); }}
             className="text-orange-600 hover:text-orange-700 underline underline-offset-2"
@@ -480,16 +508,24 @@ export default function IqaAssignPage() {
         </p>
       )}
 
-      {/* IQA History Modal */}
+      {/* IQA History / Smart Selection Modal */}
       {showHistoryModal && selectedItems.length > 0 && (
         <IqaHistoryModal
           items={selectedItems}
           allChecks={checks}
           tutors={tutors}
-          workloads={workloads}
           onClose={() => setShowHistoryModal(false)}
           onSkip={handleModalSkip}
-          onAssign={handleModalAssign}
+          onBulkAssign={handleModalBulkAssign}
+        />
+      )}
+
+      {/* Single assign reviewer modal */}
+      {assignModalSubmissionId && (
+        <AssignReviewerModal
+          tutors={tutors}
+          onAssign={tutorId => handleAssignReviewer(assignModalSubmissionId, tutorId)}
+          onClose={() => setAssignModalSubmissionId(null)}
         />
       )}
 
@@ -498,7 +534,7 @@ export default function IqaAssignPage() {
         <ConfirmDialog
           action={confirmBulkAction}
           selectedCount={selected.size}
-          onConfirm={confirmBulkAction === 'exclude' ? handleBulkSkip : handleBulkUnassign}
+          onConfirm={confirmBulkAction === 'skip' ? handleBulkSkip : handleBulkUnassign}
           onCancel={() => setConfirmBulkAction(null)}
         />
       )}

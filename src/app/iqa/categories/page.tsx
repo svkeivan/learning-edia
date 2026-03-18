@@ -8,6 +8,8 @@ import {
   updateIqaCategory,
   addIqaCategory,
   removeIqaCategory,
+  getDefaultCategory,
+  setDefaultCategory,
   type IqaCategory,
   type IqaTutor,
   type IqaRiskLevel,
@@ -15,27 +17,68 @@ import {
 
 const RISK_LEVELS: IqaRiskLevel[] = ['Low', 'Medium', 'High'];
 
+function DefaultCheckbox({
+  checked,
+  onChange,
+  currentDefaultName,
+  alreadyDefault,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  currentDefaultName: string | null;
+  alreadyDefault: boolean;
+}) {
+  return (
+    <div>
+      <label className="flex items-center gap-2.5 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={e => onChange(e.target.checked)}
+          disabled={alreadyDefault}
+          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 disabled:opacity-50"
+        />
+        <span className={`text-sm ${alreadyDefault ? 'text-gray-400' : 'text-gray-700'}`}>
+          {alreadyDefault ? 'This is the current default' : 'Set as default category'}
+        </span>
+      </label>
+      {checked && !alreadyDefault && currentDefaultName && (
+        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2 ml-6">
+          This will replace <strong>&ldquo;{currentDefaultName}&rdquo;</strong> as the default category. New assessors and those from deleted categories will be assigned here instead.
+        </p>
+      )}
+      {!checked && !alreadyDefault && (
+        <p className="text-xs text-gray-400 mt-1 ml-6">New assessors and those from deleted categories go to the default category.</p>
+      )}
+    </div>
+  );
+}
+
 function EditCategoryModal({
   category,
+  currentDefaultName,
   onClose,
   onSave,
 }: {
   category: IqaCategory;
+  currentDefaultName: string | null;
   onClose: () => void;
   onSave: (id: string, update: Partial<IqaCategory>) => void;
 }) {
   const [name, setName] = useState(category.name);
   const [recheckPercent, setRecheckPercent] = useState(String(category.recheckPercent));
   const [riskLevel, setRiskLevel] = useState<IqaRiskLevel>(category.riskLevel);
+  const [isDefault, setIsDefault] = useState(!!category.isDefault);
   const [error, setError] = useState('');
+
+  const alreadyDefault = !!category.isDefault;
 
   const handleSave = () => {
     const pct = parseInt(recheckPercent);
     if (!name.trim()) { setError('Name is required.'); return; }
     if (isNaN(pct) || pct < 0 || pct > 100) { setError('Recheck percent must be 0–100.'); return; }
     setError('');
-    // Keep rechecksPerReviewer unchanged (managed via People > Reviewers > Max Queue)
-    onSave(category.id, { name: name.trim(), recheckPercent: pct, riskLevel });
+    onSave(category.id, { name: name.trim(), recheckPercent: pct, riskLevel, isDefault: isDefault || undefined });
     onClose();
   };
 
@@ -85,6 +128,12 @@ function EditCategoryModal({
               ))}
             </select>
           </div>
+          <DefaultCheckbox
+            checked={isDefault}
+            onChange={setIsDefault}
+            currentDefaultName={alreadyDefault ? null : currentDefaultName}
+            alreadyDefault={alreadyDefault}
+          />
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
         <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
@@ -101,15 +150,18 @@ function EditCategoryModal({
 }
 
 function AddCategoryModal({
+  currentDefaultName,
   onClose,
   onSave,
 }: {
+  currentDefaultName: string | null;
   onClose: () => void;
   onSave: (category: IqaCategory) => void;
 }) {
   const [name, setName] = useState('');
   const [recheckPercent, setRecheckPercent] = useState('15');
   const [riskLevel, setRiskLevel] = useState<IqaRiskLevel>('Medium');
+  const [isDefault, setIsDefault] = useState(false);
   const [error, setError] = useState('');
 
   const handleSave = () => {
@@ -118,8 +170,7 @@ function AddCategoryModal({
     if (isNaN(pct) || pct < 0 || pct > 100) { setError('Recheck percent must be 0–100.'); return; }
     setError('');
     const id = 'cat-' + Date.now();
-    // rechecksPerReviewer defaults to 10; overrideable per-reviewer in People page
-    onSave({ id, name: name.trim(), recheckPercent: pct, riskLevel, rechecksPerReviewer: 10 });
+    onSave({ id, name: name.trim(), recheckPercent: pct, riskLevel, rechecksPerReviewer: 10, isDefault });
     onClose();
   };
 
@@ -169,6 +220,12 @@ function AddCategoryModal({
               ))}
             </select>
           </div>
+          <DefaultCheckbox
+            checked={isDefault}
+            onChange={setIsDefault}
+            currentDefaultName={currentDefaultName}
+            alreadyDefault={false}
+          />
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
         <div className="px-6 py-5 border-t border-gray-100 flex justify-end gap-3">
@@ -209,11 +266,13 @@ export default function IqaCategoriesPage() {
 
   const handleSaveCategory = (id: string, update: Partial<IqaCategory>) => {
     updateIqaCategory(id, update);
+    if (update.isDefault) setDefaultCategory(id);
     refresh();
   };
 
   const handleAddCategory = (category: IqaCategory) => {
     addIqaCategory(category);
+    if (category.isDefault) setDefaultCategory(category.id);
     refresh();
   };
 
@@ -224,6 +283,9 @@ export default function IqaCategoriesPage() {
   };
 
   const assessorsByCategory = (catId: string) => assessors.filter(t => t.categoryId === catId);
+
+  const defaultCat = categories.find(c => c.isDefault);
+  const currentDefaultName = defaultCat?.name ?? null;
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -295,7 +357,14 @@ export default function IqaCategoriesPage() {
             {categories.map(cat => (
               <tr key={cat.id} className="border-b border-gray-100 last:border-0">
                 <td className="px-5 py-4">
-                  <p className="font-medium text-gray-900">{cat.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-gray-900">{cat.name}</p>
+                    {cat.isDefault && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 uppercase tracking-wide">
+                        Default
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-5 py-4 text-sm text-gray-600">{cat.recheckPercent}%</td>
                 <td className="px-5 py-4">
@@ -316,12 +385,14 @@ export default function IqaCategoriesPage() {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => setConfirmDeleteId(cat.id)}
-                      className="text-sm font-medium text-red-500 hover:text-red-700"
-                    >
-                      Delete
-                    </button>
+                    {!cat.isDefault && (
+                      <button
+                        onClick={() => setConfirmDeleteId(cat.id)}
+                        className="text-sm font-medium text-red-500 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -330,32 +401,10 @@ export default function IqaCategoriesPage() {
         </table>
       </div>
 
-      {/* People summary */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 flex items-center justify-between">
-        <div className="flex items-start gap-3">
-          <svg className="text-blue-500 shrink-0 mt-0.5" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-          </svg>
-          <div>
-            <p className="text-sm text-blue-800 font-medium">
-              {assessors.length} assessor{assessors.length !== 1 ? 's' : ''} assigned across {categories.length} categories
-            </p>
-            <p className="text-xs text-blue-600 mt-0.5">
-              {categories.map(c => `${c.name}: ${assessorsByCategory(c.id).length}`).join(' · ')}
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/iqa/people"
-          className="text-sm font-semibold text-blue-700 hover:text-blue-800 whitespace-nowrap"
-        >
-          Manage People →
-        </Link>
-      </div>
-
       {editingCategory && (
         <EditCategoryModal
           category={editingCategory}
+          currentDefaultName={currentDefaultName}
           onClose={() => setEditingCategory(null)}
           onSave={handleSaveCategory}
         />
@@ -363,6 +412,7 @@ export default function IqaCategoriesPage() {
 
       {showAddModal && (
         <AddCategoryModal
+          currentDefaultName={currentDefaultName}
           onClose={() => setShowAddModal(false)}
           onSave={handleAddCategory}
         />
@@ -385,9 +435,10 @@ export default function IqaCategoriesPage() {
                   <p className="text-sm text-gray-500">This cannot be undone.</p>
                 </div>
               </div>
-              {memberCount > 0 && (
+              {memberCount > 0 && defaultCat && (
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
-                  {memberCount} assessor{memberCount !== 1 ? 's are' : ' is'} assigned to this category. They will no longer have a category.
+                  {memberCount} assessor{memberCount !== 1 ? 's' : ''} will be moved to the default category
+                  <strong className="text-amber-800"> &ldquo;{defaultCat.name}&rdquo;</strong>.
                 </p>
               )}
               <div className="flex gap-3">

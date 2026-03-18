@@ -9,6 +9,8 @@ export interface IqaCategory {
   riskLevel: IqaRiskLevel;
   /** Max active rechecks a single reviewer in this category can handle (default) */
   rechecksPerReviewer: number;
+  /** If true, new assessors and orphaned assessors default to this category */
+  isDefault?: boolean;
 }
 
 export interface IqaTutor {
@@ -68,7 +70,7 @@ const IQA_FEEDBACK_KEY = 'iqa-feedback-records';
 const iqaCategoriesBase: IqaCategory[] = [
   { id: 'cat1', name: 'Low Risk', recheckPercent: 10, riskLevel: 'Low', rechecksPerReviewer: 20 },
   { id: 'cat2', name: 'Medium Risk', recheckPercent: 25, riskLevel: 'Medium', rechecksPerReviewer: 12 },
-  { id: 'cat3', name: 'High Risk', recheckPercent: 50, riskLevel: 'High', rechecksPerReviewer: 6 },
+  { id: 'cat3', name: 'High Risk', recheckPercent: 50, riskLevel: 'High', rechecksPerReviewer: 6, isDefault: true },
 ];
 
 const iqaTutorsBase: IqaTutor[] = [
@@ -81,14 +83,20 @@ const iqaTutorsBase: IqaTutor[] = [
 ];
 
 export const iqaChecksBase: IqaCheck[] = [
-  { id: 'c1', submissionId: 's7',  assessorId: 't3', status: 'Pending' },
-  { id: 'c2', submissionId: 's8',  assessorId: 't4', status: 'Pending' },
-  { id: 'c3', submissionId: 's9',  assessorId: 't1', status: 'Approved', reviewerName: 'Admin User', reviewedAt: '14 Feb 2026, 11:30', outcomeType: 'approved' },
+  // Pending + assigned → shows in All tab only
+  { id: 'c1', submissionId: 's7',  assessorId: 't3', status: 'Pending', assignedTo: 't2' },
+  { id: 'c2', submissionId: 's8',  assessorId: 't4', status: 'Pending', assignedTo: 't1' },
+  // Completed reviews → shows in All tab with status + reviewer
+  { id: 'c3', submissionId: 's9',  assessorId: 't1', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '14 Feb 2026, 11:30', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c5', submissionId: 's13', assessorId: 't5', status: 'Rejected', reviewerName: 'David Kumar', reviewedAt: '13 Feb 2026, 15:00', feedback: 'Insufficient detail in marking criteria application.', outcomeType: 'recheck-assessor', assignedTo: 't4' },
+  { id: 'c7', submissionId: 's16', assessorId: 't6', status: 'Approved', reviewerName: 'Sarah Mitchell', reviewedAt: '16 Feb 2026, 14:20', outcomeType: 'approved', assignedTo: 't1' },
+  { id: 'c8', submissionId: 's17', assessorId: 't6', status: 'Pending', assignedTo: 't4' },
+  // Pending + NO assignedTo → shows in In Queue tab (awaiting reviewer assignment)
   { id: 'c4', submissionId: 's12', assessorId: 't4', status: 'Pending' },
-  { id: 'c5', submissionId: 's13', assessorId: 't5', status: 'Rejected', reviewerName: 'Admin User', reviewedAt: '13 Feb 2026, 15:00', feedback: 'Insufficient detail in marking criteria application.', outcomeType: 'recheck-assessor' },
   { id: 'c6', submissionId: 's14', assessorId: 't5', status: 'Pending' },
-  { id: 'c7', submissionId: 's16', assessorId: 't6', status: 'Approved', reviewerName: 'Admin User', reviewedAt: '16 Feb 2026, 14:20', outcomeType: 'approved' },
-  { id: 'c8', submissionId: 's17', assessorId: 't6', status: 'Pending' },
+  { id: 'c9', submissionId: 's18', assessorId: 't1', status: 'Pending' },
+  { id: 'c10', submissionId: 's19', assessorId: 't1', status: 'Pending' },
+  // s10, s15, s20, s21, s22, s23, s24, s25 → no check = Not in Queue
 ];
 
 // ── Categories ────────────────────────────────────────────────────────────
@@ -121,15 +129,36 @@ export function getIqaCategories(): IqaCategory[] {
   } catch { return iqaCategoriesBase.map(c => ({ ...c, ...overrides[c.id] })); }
 }
 
+export function getDefaultCategory(): IqaCategory | undefined {
+  return getIqaCategories().find(c => c.isDefault);
+}
+
+export function setDefaultCategory(id: string) {
+  const categories = getIqaCategories();
+  for (const cat of categories) {
+    if (cat.isDefault && cat.id !== id) updateIqaCategory(cat.id, { isDefault: false });
+  }
+  updateIqaCategory(id, { isDefault: true });
+}
+
 export function removeIqaCategory(id: string) {
   if (typeof window === 'undefined') return;
   try {
+    const defaultCat = getIqaCategories().find(c => c.isDefault && c.id !== id);
+    if (defaultCat) {
+      const tutors = getIqaTutors().filter(t => t.categoryId === id);
+      for (const t of tutors) {
+        updateIqaTutor(t.id, { categoryId: defaultCat.id });
+      }
+    }
+
     const removed: string[] = JSON.parse(sessionStorage.getItem(REMOVED_CATEGORIES_KEY) ?? '[]');
     if (!removed.includes(id)) {
       removed.push(id);
       sessionStorage.setItem(REMOVED_CATEGORIES_KEY, JSON.stringify(removed));
     }
     window.dispatchEvent(new CustomEvent('iqa-categories-updated'));
+    window.dispatchEvent(new CustomEvent('iqa-tutors-updated'));
   } catch { /* ignore */ }
 }
 
