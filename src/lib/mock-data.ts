@@ -137,20 +137,71 @@ export const assessments: Assessment[] = [
     type: 'Multiple Choice',
     module: 'Hydraulics Fundamentals',
     trade: 'Plumbing',
-    status: 'Draft',
-    totalSubmissions: 0,
-    gradedSubmissions: 0,
+    status: 'Active',
+    totalSubmissions: 16,
+    gradedSubmissions: 16,
     pendingGrading: 0,
-    passRate: 0,
-    avgScore: 0,
+    passRate: 81,
+    avgScore: 73,
     passMark: 70,
     dueDate: '1 Apr 2026',
     createdAt: '10 Feb 2026',
     questionCount: 16,
   },
+  {
+    id: 'a7',
+    title: 'Gas Appliance Installation Test',
+    type: 'Mixed',
+    module: 'Gas Appliance Installation',
+    trade: 'Gas Engineering',
+    status: 'Active',
+    totalSubmissions: 15,
+    gradedSubmissions: 15,
+    pendingGrading: 0,
+    passRate: 80,
+    avgScore: 74,
+    passMark: 70,
+    dueDate: '28 Feb 2026',
+    createdAt: '1 Feb 2026',
+    questionCount: 20,
+  },
+  {
+    id: 'a8',
+    title: 'Electrical Wiring Practical',
+    type: 'File Upload',
+    module: 'Wiring Regulations (BS 7671)',
+    trade: 'Electrical',
+    status: 'Active',
+    totalSubmissions: 38,
+    gradedSubmissions: 38,
+    pendingGrading: 0,
+    passRate: 74,
+    avgScore: 70,
+    passMark: 65,
+    dueDate: '15 Mar 2026',
+    createdAt: '5 Feb 2026',
+    questionCount: 15,
+  },
+  {
+    id: 'a9',
+    title: 'Plumbing Practical Assessment',
+    type: 'Mixed',
+    module: 'Pipe Joining Techniques',
+    trade: 'Plumbing',
+    status: 'Active',
+    totalSubmissions: 16,
+    gradedSubmissions: 16,
+    pendingGrading: 0,
+    passRate: 75,
+    avgScore: 72,
+    passMark: 70,
+    dueDate: '10 Mar 2026',
+    createdAt: '12 Feb 2026',
+    questionCount: 18,
+  },
 ];
 
-// ─── SUBMISSIONS ─────────────────────────────────────────────────────────────
+// ─── COHORTS & SUBMISSIONS ───────────────────────────────────────────────────
 
 export type AnswerItem =
   | { type: 'mc' | 'text'; question: string; answer: string }
@@ -167,128 +218,181 @@ export interface StudentSubmission {
   attemptNumber: number;
   timeTaken: string;
   answers?: AnswerItem[];
-  /** Tutor who graded this submission (for IQA tracking) */
   gradedBy?: string;
 }
 
-export const submissions: StudentSubmission[] = [
-  // a1 – Gas Safety (auto-graded, all done)
-  { id: 's1', assessmentId: 'a1', student: 'James Wilson', email: 'j.wilson@email.com', submittedAt: '14 Feb 2026, 09:32', score: 85, status: 'Pass', attemptNumber: 1, timeTaken: '18 min' },
-  { id: 's2', assessmentId: 'a1', student: 'Sarah Ahmed', email: 's.ahmed@email.com', submittedAt: '14 Feb 2026, 10:15', score: 72, status: 'Pass', attemptNumber: 1, timeTaken: '22 min' },
-  { id: 's3', assessmentId: 'a1', student: 'Mike Chen', email: 'm.chen@email.com', submittedAt: '14 Feb 2026, 11:02', score: 65, status: 'Fail', attemptNumber: 1, timeTaken: '25 min' },
-  { id: 's4', assessmentId: 'a1', student: 'Emma Thompson', email: 'e.thompson@email.com', submittedAt: '14 Feb 2026, 11:45', score: 91, status: 'Pass', attemptNumber: 1, timeTaken: '16 min' },
-  { id: 's5', assessmentId: 'a1', student: 'David Park', email: 'd.park@email.com', submittedAt: '15 Feb 2026, 09:10', score: 78, status: 'Pass', attemptNumber: 1, timeTaken: '20 min' },
-  { id: 's6', assessmentId: 'a1', student: 'Lisa Rodriguez', email: 'l.rodriguez@email.com', submittedAt: '15 Feb 2026, 09:55', score: 88, status: 'Pass', attemptNumber: 1, timeTaken: '19 min' },
+export interface Cohort {
+  id: string;
+  name: string;
+  trade: 'Gas Engineering' | 'Electrical' | 'Plumbing';
+  assessorId: string;
+  examIds: string[];
+  examDates: string[];
+  packageName: string;
+  students: { name: string; email: string }[];
+}
 
-  // a2 – Electrical Safety (file upload – graded by tutors, in IQA)
+export const cohorts: Cohort[] = [
   {
-    id: 's7', assessmentId: 'a2', student: 'Tom Baker', email: 't.baker@email.com',
-    submittedAt: '13 Feb 2026, 14:20', score: 72, status: 'Pass', attemptNumber: 1, timeTaken: '35 min', gradedBy: 't3',
-    answers: [
-      { type: 'file', fileName: 'RCD_Assessment_Tom_Baker.pdf', fileType: 'PDF', size: '1.2 MB' },
+    id: 'coh1',
+    name: 'London-Room3A-10Feb26',
+    trade: 'Gas Engineering',
+    assessorId: 't1',
+    examIds: ['a1', 'a4', 'a7'],
+    examDates: ['10 Feb 2026', '12 Feb 2026', '14 Feb 2026'],
+    packageName: 'Professional Gas Engineer',
+    students: [
+      { name: 'James Wilson', email: 'j.wilson@email.com' },
+      { name: 'Sarah Ahmed', email: 's.ahmed@email.com' },
+      { name: 'Mike Chen', email: 'm.chen@email.com' },
+      { name: 'Emma Thompson', email: 'e.thompson@email.com' },
+      { name: 'David Park', email: 'd.park@email.com' },
+      { name: 'Lisa Rodriguez', email: 'l.rodriguez@email.com' },
+      { name: 'Hannah Davies', email: 'h.davies@email.com' },
+      { name: 'Ryan O\'Brien', email: 'r.obrien@email.com' },
+      { name: 'Zara Khan', email: 'z.khan@email.com' },
+      { name: 'Marcus Johnson', email: 'm.johnson@email.com' },
+      { name: 'Sophie Turner', email: 's.turner@email.com' },
+      { name: 'Jake Morris', email: 'j.morris@email.com' },
+      { name: 'Aisha Begum', email: 'a.begum@email.com' },
+      { name: 'Connor Walsh', email: 'c.walsh@email.com' },
+      { name: 'Megan Lloyd', email: 'm.lloyd@email.com' },
     ],
   },
   {
-    id: 's8', assessmentId: 'a2', student: 'Anna Smith', email: 'a.smith@email.com',
-    submittedAt: '13 Feb 2026, 15:05', score: 68, status: 'Pass', attemptNumber: 1, timeTaken: '28 min', gradedBy: 't4',
-    answers: [
-      { type: 'file', fileName: 'Electrical_Safety_Submission_Anna_Smith.pdf', fileType: 'PDF', size: '0.9 MB' },
+    id: 'coh2',
+    name: 'Manchester-Lab1-03Feb26',
+    trade: 'Electrical',
+    assessorId: 't3',
+    examIds: ['a2', 'a5', 'a8'],
+    examDates: ['3 Feb 2026', '5 Feb 2026', '7 Feb 2026'],
+    packageName: 'Professional Electrician',
+    students: [
+      { name: 'Tom Baker', email: 't.baker@email.com' },
+      { name: 'Anna Smith', email: 'a.smith@email.com' },
+      { name: 'Carlos Diaz', email: 'c.diaz@email.com' },
+      { name: 'Priya Patel', email: 'p.patel@email.com' },
+      { name: 'Ben Thomas', email: 'b.thomas@email.com' },
+      { name: 'Rachel Green', email: 'r.green@email.com' },
+      { name: 'Liam Hughes', email: 'l.hughes@email.com' },
+      { name: 'Chloe Bennett', email: 'c.bennett@email.com' },
+      { name: 'Tariq Mahmood', email: 't.mahmood@email.com' },
+      { name: 'Fiona Campbell', email: 'f.campbell@email.com' },
+      { name: 'Kyle Rogers', email: 'k.rogers@email.com' },
+      { name: 'Natasha Ivanova', email: 'n.ivanova@email.com' },
+      { name: 'George Palmer', email: 'g.palmer@email.com' },
+      { name: 'Amelia Foster', email: 'a.foster@email.com' },
+      { name: 'Hassan Ali', email: 'h.ali@email.com' },
+      { name: 'Jade Williams', email: 'j.williams@email.com' },
+      { name: 'Oliver Brooks', email: 'o.brooks@email.com' },
+      { name: 'Ella Sharma', email: 'e.sharma@email.com' },
     ],
   },
   {
-    id: 's9', assessmentId: 'a2', student: 'Carlos Diaz', email: 'c.diaz@email.com',
-    submittedAt: '14 Feb 2026, 09:00', score: 73, status: 'Pass', attemptNumber: 1, timeTaken: '30 min', gradedBy: 't1',
-    answers: [{ type: 'file', fileName: 'Electrical_Wiring_Carlos_Diaz.pdf', fileType: 'PDF', size: '1.3 MB' }],
-  },
-  {
-    id: 's10', assessmentId: 'a2', student: 'Priya Patel', email: 'p.patel@email.com',
-    submittedAt: '14 Feb 2026, 10:30', score: 58, status: 'Fail', attemptNumber: 1, timeTaken: '38 min', gradedBy: 't3',
-    answers: [{ type: 'file', fileName: 'Electrical_Submission_Priya_Patel.pdf', fileType: 'PDF', size: '1.0 MB' }],
-  },
-  { id: 's11', assessmentId: 'a2', student: 'Rachel Green', email: 'r.green@email.com', submittedAt: '-', score: null, status: 'Not Started', attemptNumber: 0, timeTaken: '-' },
-  {
-    id: 's12', assessmentId: 'a2', student: 'Ben Thomas', email: 'b.thomas@email.com',
-    submittedAt: '15 Feb 2026, 14:30', score: 70, status: 'Pass', attemptNumber: 1, timeTaken: '32 min', gradedBy: 't4',
-    answers: [
-      { type: 'file', fileName: 'Electrical_Regulations_Ben_Thomas.pdf', fileType: 'PDF', size: '1.5 MB' },
+    id: 'coh3',
+    name: 'Birmingham-WorkshopB-17Feb26',
+    trade: 'Plumbing',
+    assessorId: 't5',
+    examIds: ['a3', 'a6', 'a9'],
+    examDates: ['17 Feb 2026', '19 Feb 2026', '21 Feb 2026'],
+    packageName: 'Master Plumber Bundle',
+    students: [
+      { name: 'Omar Hassan', email: 'o.hassan@email.com' },
+      { name: 'Nina Kowalski', email: 'n.kowalski@email.com' },
+      { name: 'Liam Murphy', email: 'l.murphy@email.com' },
+      { name: 'Sofia Martins', email: 's.martins@email.com' },
+      { name: 'Daniel Okafor', email: 'd.okafor@email.com' },
+      { name: 'Yuki Tanaka', email: 'y.tanaka@email.com' },
+      { name: 'Freya Anderson', email: 'f.anderson@email.com' },
+      { name: 'Max Hartley', email: 'm.hartley@email.com' },
+      { name: 'Leila Nazari', email: 'l.nazari@email.com' },
+      { name: 'Tyler Evans', email: 't.evans@email.com' },
+      { name: 'Grace Maguire', email: 'g.maguire@email.com' },
+      { name: 'Kai Watanabe', email: 'k.watanabe@email.com' },
+      { name: 'Amy Brennan', email: 'a.brennan@email.com' },
+      { name: 'Lucas Silva', email: 'l.silva@email.com' },
+      { name: 'Hannah McKenzie', email: 'h.mckenzie@email.com' },
+      { name: 'Toby Fletcher', email: 't.fletcher@email.com' },
     ],
   },
-
-  // a3 – Plumbing (file upload) – graded by tutors, in IQA
   {
-    id: 's13', assessmentId: 'a3', student: 'Omar Hassan', email: 'o.hassan@email.com',
-    submittedAt: '12 Feb 2026, 13:45', score: 78, status: 'Pass', attemptNumber: 1, timeTaken: '42 min', gradedBy: 't5',
-    answers: [{ type: 'file', fileName: 'Soldered_Joint_Test_Report_Omar_Hassan.pdf', fileType: 'PDF', size: '2.1 MB' }],
-  },
-  {
-    id: 's14', assessmentId: 'a3', student: 'Nina Kowalski', email: 'n.kowalski@email.com',
-    submittedAt: '13 Feb 2026, 09:20', score: 62, status: 'Fail', attemptNumber: 1, timeTaken: '38 min', gradedBy: 't5',
-    answers: [{ type: 'file', fileName: 'Plumbing_Assessment_Nina_Kowalski.pdf', fileType: 'PDF', size: '0.8 MB' }],
-  },
-  {
-    id: 's15', assessmentId: 'a3', student: 'Liam Murphy', email: 'l.murphy@email.com',
-    submittedAt: '14 Feb 2026, 14:15', score: 76, status: 'Pass', attemptNumber: 1, timeTaken: '33 min', gradedBy: 't2',
-    answers: [{ type: 'file', fileName: 'Plumbing_Report_Liam_Murphy.pdf', fileType: 'PDF', size: '1.4 MB' }],
-  },
-
-  // a5 – Circuit Analysis (file upload) – graded by tutors, in IQA
-  {
-    id: 's16', assessmentId: 'a5', student: 'Tom Baker', email: 't.baker@email.com',
-    submittedAt: '16 Feb 2026, 10:15', score: 85, status: 'Pass', attemptNumber: 1, timeTaken: '45 min', gradedBy: 't6',
-    answers: [{ type: 'file', fileName: 'Circuit_Analysis_Submission_Tom_Baker.pdf', fileType: 'PDF', size: '1.8 MB' }],
-  },
-  {
-    id: 's17', assessmentId: 'a5', student: 'Anna Smith', email: 'a.smith@email.com',
-    submittedAt: '16 Feb 2026, 11:30', score: 71, status: 'Pass', attemptNumber: 1, timeTaken: '38 min', gradedBy: 't6',
-    answers: [{ type: 'file', fileName: 'KVL_Assessment_Anna_Smith.pdf', fileType: 'PDF', size: '1.3 MB' }],
-  },
-
-  // a4 – Health & Safety Induction (graded, mixed IQA states)
-  {
-    id: 's18', assessmentId: 'a4', student: 'James Wilson', email: 'j.wilson@email.com',
-    submittedAt: '17 Feb 2026, 09:15', score: 88, status: 'Pass', attemptNumber: 1, timeTaken: '14 min', gradedBy: 't1',
-    answers: [{ type: 'file', fileName: 'HS_Induction_James_Wilson.pdf', fileType: 'PDF', size: '0.6 MB' }],
-  },
-  {
-    id: 's19', assessmentId: 'a4', student: 'Sarah Ahmed', email: 's.ahmed@email.com',
-    submittedAt: '17 Feb 2026, 10:00', score: 76, status: 'Pass', attemptNumber: 1, timeTaken: '16 min', gradedBy: 't1',
-    answers: [{ type: 'file', fileName: 'HS_Induction_Sarah_Ahmed.pdf', fileType: 'PDF', size: '0.5 MB' }],
-  },
-  {
-    id: 's20', assessmentId: 'a4', student: 'Mike Chen', email: 'm.chen@email.com',
-    submittedAt: '17 Feb 2026, 11:20', score: 62, status: 'Fail', attemptNumber: 1, timeTaken: '18 min', gradedBy: 't3',
-    answers: [{ type: 'file', fileName: 'HS_Induction_Mike_Chen.pdf', fileType: 'PDF', size: '0.7 MB' }],
-  },
-  {
-    id: 's21', assessmentId: 'a4', student: 'Emma Thompson', email: 'e.thompson@email.com',
-    submittedAt: '17 Feb 2026, 13:45', score: 91, status: 'Pass', attemptNumber: 1, timeTaken: '12 min', gradedBy: 't3',
-    answers: [{ type: 'file', fileName: 'HS_Induction_Emma_Thompson.pdf', fileType: 'PDF', size: '0.4 MB' }],
-  },
-
-  // a3 – Plumbing Standards (additional graded, no IQA check yet)
-  {
-    id: 's22', assessmentId: 'a3', student: 'David Park', email: 'd.park@email.com',
-    submittedAt: '18 Feb 2026, 09:30', score: 69, status: 'Fail', attemptNumber: 1, timeTaken: '40 min', gradedBy: 't5',
-    answers: [{ type: 'file', fileName: 'Plumbing_Assessment_David_Park.pdf', fileType: 'PDF', size: '1.1 MB' }],
-  },
-  {
-    id: 's23', assessmentId: 'a3', student: 'Lisa Rodriguez', email: 'l.rodriguez@email.com',
-    submittedAt: '18 Feb 2026, 10:15', score: 82, status: 'Pass', attemptNumber: 1, timeTaken: '36 min', gradedBy: 't5',
-    answers: [{ type: 'file', fileName: 'Plumbing_Assessment_Lisa_Rodriguez.pdf', fileType: 'PDF', size: '1.0 MB' }],
-  },
-
-  // a5 – Circuit Analysis (additional graded, no IQA check yet)
-  {
-    id: 's24', assessmentId: 'a5', student: 'Carlos Diaz', email: 'c.diaz@email.com',
-    submittedAt: '18 Feb 2026, 14:00', score: 74, status: 'Pass', attemptNumber: 1, timeTaken: '42 min', gradedBy: 't4',
-    answers: [{ type: 'file', fileName: 'Circuit_Analysis_Carlos_Diaz.pdf', fileType: 'PDF', size: '1.6 MB' }],
-  },
-  {
-    id: 's25', assessmentId: 'a5', student: 'Priya Patel', email: 'p.patel@email.com',
-    submittedAt: '18 Feb 2026, 15:30', score: 65, status: 'Fail', attemptNumber: 1, timeTaken: '50 min', gradedBy: 't4',
-    answers: [{ type: 'file', fileName: 'Circuit_Analysis_Priya_Patel.pdf', fileType: 'PDF', size: '1.2 MB' }],
+    id: 'coh4',
+    name: 'Leeds-Room2B-24Feb26',
+    trade: 'Electrical',
+    assessorId: 't4',
+    examIds: ['a2', 'a5', 'a8'],
+    examDates: ['24 Feb 2026', '26 Feb 2026', '28 Feb 2026'],
+    packageName: 'Electrical Installer (Level 2)',
+    students: [
+      { name: 'Amina Khan', email: 'a.khan2@email.com' },
+      { name: 'Charlie Fox', email: 'c.fox@email.com' },
+      { name: 'Devi Ranganathan', email: 'd.ranganathan@email.com' },
+      { name: 'Eve Robertson', email: 'e.robertson@email.com' },
+      { name: 'Felix Zhao', email: 'f.zhao@email.com' },
+      { name: 'Georgia Hall', email: 'g.hall@email.com' },
+      { name: 'Harry Stone', email: 'h.stone@email.com' },
+      { name: 'Isla Reeves', email: 'i.reeves@email.com' },
+      { name: 'Jack Thornton', email: 'j.thornton@email.com' },
+      { name: 'Katie Sullivan', email: 'k.sullivan@email.com' },
+      { name: 'Leo Andersson', email: 'l.andersson@email.com' },
+      { name: 'Maya Goldstein', email: 'm.goldstein@email.com' },
+      { name: 'Noah Chambers', email: 'n.chambers@email.com' },
+      { name: 'Olivia Cross', email: 'o.cross@email.com' },
+      { name: 'Patrick Doyle', email: 'p.doyle@email.com' },
+      { name: 'Quinn Zhang', email: 'q.zhang@email.com' },
+      { name: 'Ruby Martin', email: 'r.martin@email.com' },
+      { name: 'Sam Al-Rashid', email: 's.alrashid@email.com' },
+      { name: 'Tara Connolly', email: 't.connolly@email.com' },
+      { name: 'Will Henderson', email: 'w.henderson@email.com' },
+    ],
   },
 ];
+
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function generateSubmissions(): StudentSubmission[] {
+  const subs: StudentSubmission[] = [];
+  let counter = 1;
+  const passMark: Record<string, number> = { a1:70, a2:65, a3:70, a4:70, a5:70, a6:70, a7:70, a8:65, a9:70 };
+
+  for (let ci = 0; ci < cohorts.length; ci++) {
+    const coh = cohorts[ci];
+    for (let ei = 0; ei < coh.examIds.length; ei++) {
+      const examId = coh.examIds[ei];
+      const dateStr = coh.examDates[ei];
+      const exam = assessments.find(a => a.id === examId);
+
+      for (let si = 0; si < coh.students.length; si++) {
+        const st = coh.students[si];
+        const seed = (si * 17 + ei * 23 + ci * 31 + 5);
+        const score = 52 + (seed % 43);
+        const pm = passMark[examId] ?? 70;
+        const hour = 9 + Math.floor(si / 4);
+        const minute = (si * 12) % 60;
+        const timeMins = 15 + (seed % 35);
+        const fileName = `${(exam?.title ?? examId).replace(/\s+/g, '_')}_${st.name.replace(/\s+/g, '_')}.pdf`;
+
+        subs.push({
+          id: `s${counter}`,
+          assessmentId: examId,
+          student: st.name,
+          email: st.email,
+          submittedAt: `${dateStr}, ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+          score,
+          status: score >= pm ? 'Pass' : 'Fail',
+          attemptNumber: 1,
+          timeTaken: `${timeMins} min`,
+          gradedBy: coh.assessorId,
+          answers: [{ type: 'file', fileName, fileType: 'PDF', size: '1.2 MB' }],
+        });
+        counter++;
+      }
+    }
+  }
+  return subs;
+}
+
+export const submissions: StudentSubmission[] = generateSubmissions();
 
 // ─── STUDENT ENROLLMENTS ─────────────────────────────────────────────────────
 
@@ -298,37 +402,43 @@ export interface StudentEnrollment {
   trade: 'Gas Engineering' | 'Electrical' | 'Plumbing';
 }
 
-export const studentEnrollments: StudentEnrollment[] = [
-  { email: 'j.wilson@email.com',    package: 'Starter Gas Engineer',           trade: 'Gas Engineering' },
-  { email: 's.ahmed@email.com',     package: 'Starter Gas Engineer',           trade: 'Gas Engineering' },
-  { email: 'm.chen@email.com',      package: 'Professional Gas Engineer',      trade: 'Gas Engineering' },
-  { email: 'e.thompson@email.com',  package: 'Professional Gas Engineer',      trade: 'Gas Engineering' },
-  { email: 'd.park@email.com',      package: 'Gas Safety Compliance',          trade: 'Gas Engineering' },
-  { email: 'l.rodriguez@email.com', package: 'Gas Safety Compliance',          trade: 'Gas Engineering' },
-  { email: 't.baker@email.com',     package: 'Professional Electrician',       trade: 'Electrical' },
-  { email: 'a.smith@email.com',     package: 'Electrical Installer (Level 2)', trade: 'Electrical' },
-  { email: 'c.diaz@email.com',      package: 'Professional Electrician',       trade: 'Electrical' },
-  { email: 'p.patel@email.com',     package: 'Electrical Installer (Level 2)', trade: 'Electrical' },
-  { email: 'r.green@email.com',     package: 'Electrical Inspection & Testing',trade: 'Electrical' },
-  { email: 'b.thomas@email.com',    package: 'Electrical Inspection & Testing',trade: 'Electrical' },
-  { email: 'o.hassan@email.com',    package: 'Master Plumber Bundle',          trade: 'Plumbing' },
-  { email: 'n.kowalski@email.com',  package: 'Plumbing Essentials',            trade: 'Plumbing' },
-  { email: 'l.murphy@email.com',    package: 'Domestic Plumbing & Heating',    trade: 'Plumbing' },
-];
+function generateEnrollments(): StudentEnrollment[] {
+  const enrollments: StudentEnrollment[] = [];
+  const seen = new Set<string>();
+  for (const coh of cohorts) {
+    for (const st of coh.students) {
+      if (seen.has(st.email)) continue;
+      seen.add(st.email);
+      enrollments.push({ email: st.email, package: coh.packageName, trade: coh.trade });
+    }
+  }
+  return enrollments;
+}
+
+export const studentEnrollments: StudentEnrollment[] = generateEnrollments();
 
 export function getStudentPackage(email: string): string | undefined {
   return studentEnrollments.find(e => e.email === email)?.package;
 }
 
-export function getStudentCohort(email: string): string | undefined {
-  for (const event of attendanceEvents) {
-    for (const session of event.sessions) {
-      if (session.students.some(s => s.email === email)) {
-        return event.course;
-      }
-    }
+const cohortByEmail = new Map<string, string>();
+for (const coh of cohorts) {
+  for (const st of coh.students) {
+    cohortByEmail.set(st.email, coh.name);
   }
-  return undefined;
+}
+
+export function getStudentCohort(email: string): string | undefined {
+  return cohortByEmail.get(email);
+}
+
+export function parseSubmitDate(dateStr: string): Date | null {
+  if (!dateStr || dateStr === '-') return null;
+  const match = dateStr.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})/);
+  if (!match) return null;
+  const mi = months.indexOf(match[2]);
+  if (mi === -1) return null;
+  return new Date(+match[3], mi, +match[1]);
 }
 
 // ─── RPL REQUESTS ────────────────────────────────────────────────────────────

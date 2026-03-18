@@ -14,7 +14,7 @@ import {
   updateIqaCheck,
   removeIqaCheck,
 } from '@/lib/iqa-data';
-import { submissions, assessments, getStudentPackage, getStudentCohort } from '@/lib/mock-data';
+import { submissions, assessments, getStudentPackage, getStudentCohort, parseSubmitDate } from '@/lib/mock-data';
 
 import { FiltersBar } from './_components/FiltersBar';
 import { BulkActionsBar } from './_components/BulkActionsBar';
@@ -57,6 +57,8 @@ export default function IqaAssignPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterReviewer, setFilterReviewer] = useState('');
   const [filterCohort, setFilterCohort] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   // Sorting
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -145,6 +147,12 @@ export default function IqaAssignPage() {
       if (filterExam && item.assessment?.id !== filterExam) return false;
       if (filterReviewer && item.assignedReviewer?.id !== filterReviewer) return false;
       if (filterCohort && item.cohort !== filterCohort) return false;
+      if (filterDateFrom || filterDateTo) {
+        const d = parseSubmitDate(item.submission.submittedAt);
+        if (!d) return false;
+        if (filterDateFrom && d < new Date(filterDateFrom)) return false;
+        if (filterDateTo && d > new Date(filterDateTo + 'T23:59:59')) return false;
+      }
       if (tab === 'queue' && filterStatus && item.check?.status !== filterStatus) return false;
       if (tab === 'all' && filterStatus) {
         const displayStatus = item.check ? item.check.status : item.isSkipped ? 'Skipped' : 'None';
@@ -167,7 +175,7 @@ export default function IqaAssignPage() {
       });
     }
     return list;
-  }, [currentItems, filterAssessor, filterCategory, filterTrade, filterExam, filterStatus, filterStudent, filterReviewer, filterCohort, tab, sortKey, sortDir]);
+  }, [currentItems, filterAssessor, filterCategory, filterTrade, filterExam, filterStatus, filterStudent, filterReviewer, filterCohort, filterDateFrom, filterDateTo, tab, sortKey, sortDir]);
 
   const uniqueAssessors = useMemo(() => {
     const ids = new Set(currentItems.map(i => i.assessor?.id).filter(Boolean));
@@ -199,7 +207,7 @@ export default function IqaAssignPage() {
     ? filteredItems.slice((allPage - 1) * PAGE_SIZE, allPage * PAGE_SIZE)
     : filteredItems;
 
-  useEffect(() => { setAllPage(1); }, [filterAssessor, filterCategory, filterTrade, filterExam, filterStudent, filterReviewer, filterCohort, tab]);
+  useEffect(() => { setAllPage(1); }, [filterAssessor, filterCategory, filterTrade, filterExam, filterStudent, filterReviewer, filterCohort, filterDateFrom, filterDateTo, tab]);
 
   const allSelected = displayItems.length > 0 && displayItems.every(i => selected.has(i.submission.id));
 
@@ -209,7 +217,7 @@ export default function IqaAssignPage() {
   );
 
   // ── Filters helpers ───────────────────────────────────────────────────────
-  const hasActiveFilters = !!(filterAssessor || filterCategory || filterTrade || filterExam || filterStatus || filterStudent || filterReviewer || filterCohort);
+  const hasActiveFilters = !!(filterAssessor || filterCategory || filterTrade || filterExam || filterStatus || filterStudent || filterReviewer || filterCohort || filterDateFrom || filterDateTo);
 
   const clearFilters = () => {
     setFilterAssessor('');
@@ -220,6 +228,8 @@ export default function IqaAssignPage() {
     setFilterStudent('');
     setFilterReviewer('');
     setFilterCohort('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
   };
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -338,6 +348,36 @@ export default function IqaAssignPage() {
     refresh();
   };
 
+  const handleExportCsv = () => {
+    const headers = ['Student', 'Email', 'Course Package', 'Assessment', 'Cohort', 'Assessor', 'Result', 'Submitted At'];
+    if (tab === 'all') headers.push('Reviewer', 'IQA Status');
+    const rows = filteredItems.map(item => {
+      const row = [
+        item.submission.student,
+        item.submission.email,
+        getStudentPackage(item.submission.email) ?? '',
+        item.assessment?.title ?? '',
+        item.cohort ?? '',
+        item.assessor?.name ?? '',
+        item.submission.status === 'Pass' ? 'Pass' : 'Fail',
+        item.submission.submittedAt,
+      ];
+      if (tab === 'all') {
+        row.push(item.assignedReviewer?.name ?? '');
+        row.push(item.check ? item.check.status : item.isSkipped ? 'Skipped' : '');
+      }
+      return row;
+    });
+    const csvContent = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `iqa-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleSortClick = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('asc'); }
@@ -426,6 +466,8 @@ export default function IqaAssignPage() {
         filterStatus={filterStatus}
         filterReviewer={filterReviewer}
         filterCohort={filterCohort}
+        filterDateFrom={filterDateFrom}
+        filterDateTo={filterDateTo}
         uniqueAssessors={uniqueAssessors}
         uniqueCategories={uniqueCategories}
         uniqueExams={uniqueExams}
@@ -442,7 +484,10 @@ export default function IqaAssignPage() {
         onStatusChange={setFilterStatus}
         onReviewerChange={setFilterReviewer}
         onCohortChange={setFilterCohort}
+        onDateFromChange={setFilterDateFrom}
+        onDateToChange={setFilterDateTo}
         onClearFilters={clearFilters}
+        onExport={handleExportCsv}
       />
 
       {/* Bulk actions */}

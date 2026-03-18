@@ -26,19 +26,25 @@ export interface IqaTutor {
 
 export type IqaOutcomeType = 'approved' | 'recheck-assessor' | 'return-module';
 
+export interface IqaReviewRound {
+  version: number;
+  reviewerName: string;
+  reviewedAt: string;
+  outcome: IqaOutcomeType;
+  feedback: string;
+}
+
 export interface IqaCheck {
   id: string;
   submissionId: string;
-  /** ID of the assessor (tutor) who originally graded this submission */
   assessorId: string;
   status: IqaCheckStatus;
   reviewerName?: string;
   reviewedAt?: string;
   feedback?: string;
-  /** Specific outcome when status is Approved or Rejected */
   outcomeType?: IqaOutcomeType;
-  /** Reviewer assigned to IQA this check */
   assignedTo?: string;
+  reviewHistory?: IqaReviewRound[];
 }
 
 export interface IqaFeedbackRecord {
@@ -68,9 +74,9 @@ const IQA_FEEDBACK_KEY = 'iqa-feedback-records';
 // ── Base data ─────────────────────────────────────────────────────────────
 
 const iqaCategoriesBase: IqaCategory[] = [
-  { id: 'cat1', name: 'Low Risk', recheckPercent: 10, riskLevel: 'Low', rechecksPerReviewer: 20 },
-  { id: 'cat2', name: 'Medium Risk', recheckPercent: 25, riskLevel: 'Medium', rechecksPerReviewer: 12 },
-  { id: 'cat3', name: 'High Risk', recheckPercent: 50, riskLevel: 'High', rechecksPerReviewer: 6, isDefault: true },
+  { id: 'cat1', name: 'Experienced Assessors', recheckPercent: 10, riskLevel: 'Low', rechecksPerReviewer: 20 },
+  { id: 'cat2', name: 'Standard Assessors', recheckPercent: 25, riskLevel: 'Medium', rechecksPerReviewer: 12 },
+  { id: 'cat3', name: 'New Joiners', recheckPercent: 50, riskLevel: 'High', rechecksPerReviewer: 6, isDefault: true },
 ];
 
 const iqaTutorsBase: IqaTutor[] = [
@@ -83,20 +89,71 @@ const iqaTutorsBase: IqaTutor[] = [
 ];
 
 export const iqaChecksBase: IqaCheck[] = [
-  // Pending + assigned → shows in All tab only
-  { id: 'c1', submissionId: 's7',  assessorId: 't3', status: 'Pending', assignedTo: 't2' },
-  { id: 'c2', submissionId: 's8',  assessorId: 't4', status: 'Pending', assignedTo: 't1' },
-  // Completed reviews → shows in All tab with status + reviewer
-  { id: 'c3', submissionId: 's9',  assessorId: 't1', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '14 Feb 2026, 11:30', outcomeType: 'approved', assignedTo: 't2' },
-  { id: 'c5', submissionId: 's13', assessorId: 't5', status: 'Rejected', reviewerName: 'David Kumar', reviewedAt: '13 Feb 2026, 15:00', feedback: 'Insufficient detail in marking criteria application.', outcomeType: 'recheck-assessor', assignedTo: 't4' },
-  { id: 'c7', submissionId: 's16', assessorId: 't6', status: 'Approved', reviewerName: 'Sarah Mitchell', reviewedAt: '16 Feb 2026, 14:20', outcomeType: 'approved', assignedTo: 't1' },
-  { id: 'c8', submissionId: 's17', assessorId: 't6', status: 'Pending', assignedTo: 't4' },
-  // Pending + NO assignedTo → shows in In Queue tab (awaiting reviewer assignment)
-  { id: 'c4', submissionId: 's12', assessorId: 't4', status: 'Pending' },
-  { id: 'c6', submissionId: 's14', assessorId: 't5', status: 'Pending' },
-  { id: 'c9', submissionId: 's18', assessorId: 't1', status: 'Pending' },
-  { id: 'c10', submissionId: 's19', assessorId: 't1', status: 'Pending' },
-  // s10, s15, s20, s21, s22, s23, s24, s25 → no check = Not in Queue
+  // ── Cohort 1: London (assessor t1, Low Risk 10%) ── 5 of 45
+  { id: 'c1', submissionId: 's3',  assessorId: 't1', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '11 Feb 2026, 14:00', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c2', submissionId: 's8',  assessorId: 't1', status: 'Pending', assignedTo: 't6' },
+  { id: 'c3', submissionId: 's18', assessorId: 't1', status: 'Pending' },
+  { id: 'c4', submissionId: 's28', assessorId: 't1', status: 'Rejected', reviewerName: 'Tom Bradley', reviewedAt: '15 Feb 2026, 10:30', feedback: 'Marking criteria not fully evidenced.', outcomeType: 'recheck-assessor', assignedTo: 't6', reviewHistory: [{ version: 1, reviewerName: 'Tom Bradley', reviewedAt: '15 Feb 2026, 10:30', outcome: 'recheck-assessor', feedback: 'Marking criteria not fully evidenced.' }] },
+  { id: 'c5', submissionId: 's35', assessorId: 't1', status: 'Pending' },
+
+  // ── Cohort 2: Manchester (assessor t3, Medium Risk 25%) ── 14 of 54
+  { id: 'c6',  submissionId: 's46', assessorId: 't3', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '4 Feb 2026, 11:00', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c7',  submissionId: 's49', assessorId: 't3', status: 'Rejected', reviewerName: 'Sarah Mitchell', reviewedAt: '4 Feb 2026, 15:30', feedback: 'Incorrect pass/fail decision.', outcomeType: 'recheck-assessor', assignedTo: 't1' },
+  { id: 'c8',  submissionId: 's52', assessorId: 't3', status: 'Pending', assignedTo: 't2' },
+  { id: 'c9',  submissionId: 's55', assessorId: 't3', status: 'Pending' },
+  { id: 'c10', submissionId: 's60', assessorId: 't3', status: 'Approved', reviewerName: 'David Kumar', reviewedAt: '6 Feb 2026, 09:45', outcomeType: 'approved', assignedTo: 't4' },
+  { id: 'c11', submissionId: 's65', assessorId: 't3', status: 'Pending', assignedTo: 't1' },
+  { id: 'c12', submissionId: 's68', assessorId: 't3', status: 'Pending' },
+  { id: 'c13', submissionId: 's72', assessorId: 't3', status: 'Approved', reviewerName: 'Tom Bradley', reviewedAt: '6 Feb 2026, 14:20', outcomeType: 'approved', assignedTo: 't6' },
+  { id: 'c14', submissionId: 's76', assessorId: 't3', status: 'Pending', assignedTo: 't4' },
+  { id: 'c15', submissionId: 's80', assessorId: 't3', status: 'Rejected', reviewerName: 'James Chen', reviewedAt: '8 Feb 2026, 11:15', feedback: 'Insufficient evidence gathered.', outcomeType: 'recheck-assessor', assignedTo: 't2' },
+  { id: 'c16', submissionId: 's84', assessorId: 't3', status: 'Pending' },
+  { id: 'c17', submissionId: 's88', assessorId: 't3', status: 'Pending', assignedTo: 't6' },
+  { id: 'c18', submissionId: 's92', assessorId: 't3', status: 'Pending' },
+  { id: 'c19', submissionId: 's96', assessorId: 't3', status: 'Approved', reviewerName: 'Sarah Mitchell', reviewedAt: '8 Feb 2026, 16:00', outcomeType: 'approved', assignedTo: 't1' },
+
+  // ── Cohort 3: Birmingham (assessor t5, High Risk 50%) ── 24 of 48
+  { id: 'c20', submissionId: 's100', assessorId: 't5', status: 'Approved', reviewerName: 'Sarah Mitchell', reviewedAt: '18 Feb 2026, 09:00', outcomeType: 'approved', assignedTo: 't1' },
+  { id: 'c21', submissionId: 's102', assessorId: 't5', status: 'Rejected', reviewerName: 'David Kumar', reviewedAt: '18 Feb 2026, 11:30', feedback: 'Grading inconsistency found.', outcomeType: 'recheck-assessor', assignedTo: 't4', reviewHistory: [{ version: 1, reviewerName: 'Sarah Mitchell', reviewedAt: '16 Feb 2026, 14:00', outcome: 'recheck-assessor', feedback: 'Initial assessment showed insufficient evidence for a pass grade. Assessor needs to verify practical competency.' }, { version: 2, reviewerName: 'David Kumar', reviewedAt: '18 Feb 2026, 11:30', outcome: 'recheck-assessor', feedback: 'Grading inconsistency found.' }] },
+  { id: 'c22', submissionId: 's104', assessorId: 't5', status: 'Pending', assignedTo: 't2' },
+  { id: 'c23', submissionId: 's106', assessorId: 't5', status: 'Pending' },
+  { id: 'c24', submissionId: 's108', assessorId: 't5', status: 'Approved', reviewerName: 'Tom Bradley', reviewedAt: '18 Feb 2026, 15:00', outcomeType: 'approved', assignedTo: 't6' },
+  { id: 'c25', submissionId: 's110', assessorId: 't5', status: 'Pending', assignedTo: 't1' },
+  { id: 'c26', submissionId: 's112', assessorId: 't5', status: 'Pending' },
+  { id: 'c27', submissionId: 's114', assessorId: 't5', status: 'Rejected', reviewerName: 'James Chen', reviewedAt: '19 Feb 2026, 10:00', feedback: 'Pass mark too lenient for evidence.', outcomeType: 'recheck-assessor', assignedTo: 't2' },
+  { id: 'c28', submissionId: 's116', assessorId: 't5', status: 'Approved', reviewerName: 'David Kumar', reviewedAt: '20 Feb 2026, 09:30', outcomeType: 'approved', assignedTo: 't4' },
+  { id: 'c29', submissionId: 's118', assessorId: 't5', status: 'Pending', assignedTo: 't6' },
+  { id: 'c30', submissionId: 's120', assessorId: 't5', status: 'Pending' },
+  { id: 'c31', submissionId: 's122', assessorId: 't5', status: 'Approved', reviewerName: 'Sarah Mitchell', reviewedAt: '20 Feb 2026, 14:00', outcomeType: 'approved', assignedTo: 't1' },
+  { id: 'c32', submissionId: 's124', assessorId: 't5', status: 'Pending', assignedTo: 't2' },
+  { id: 'c33', submissionId: 's126', assessorId: 't5', status: 'Pending' },
+  { id: 'c34', submissionId: 's128', assessorId: 't5', status: 'Rejected', reviewerName: 'Tom Bradley', reviewedAt: '21 Feb 2026, 11:00', feedback: 'Missing practical observation notes.', outcomeType: 'recheck-assessor', assignedTo: 't6', reviewHistory: [{ version: 1, reviewerName: 'James Chen', reviewedAt: '19 Feb 2026, 15:00', outcome: 'recheck-assessor', feedback: 'Assessor did not include practical observation notes. Health and safety compliance not documented.' }, { version: 2, reviewerName: 'Tom Bradley', reviewedAt: '21 Feb 2026, 11:00', outcome: 'recheck-assessor', feedback: 'Missing practical observation notes.' }] },
+  { id: 'c35', submissionId: 's132', assessorId: 't5', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '22 Feb 2026, 09:00', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c36', submissionId: 's134', assessorId: 't5', status: 'Pending', assignedTo: 't4' },
+  { id: 'c37', submissionId: 's136', assessorId: 't5', status: 'Pending' },
+  { id: 'c38', submissionId: 's138', assessorId: 't5', status: 'Approved', reviewerName: 'Sarah Mitchell', reviewedAt: '22 Feb 2026, 14:30', outcomeType: 'approved', assignedTo: 't1' },
+  { id: 'c39', submissionId: 's140', assessorId: 't5', status: 'Pending', assignedTo: 't6' },
+  { id: 'c40', submissionId: 's142', assessorId: 't5', status: 'Pending' },
+  { id: 'c41', submissionId: 's144', assessorId: 't5', status: 'Pending', assignedTo: 't2' },
+  { id: 'c42', submissionId: 's146', assessorId: 't5', status: 'Pending' },
+  { id: 'c43', submissionId: 's147', assessorId: 't5', status: 'Rejected', reviewerName: 'David Kumar', reviewedAt: '22 Feb 2026, 16:00', feedback: 'Student evidence mismatch.', outcomeType: 'recheck-assessor', assignedTo: 't4' },
+
+  // ── Cohort 4: Leeds (assessor t4, Medium Risk 25%) ── 15 of 60
+  { id: 'c44', submissionId: 's148', assessorId: 't4', status: 'Approved', reviewerName: 'Sarah Mitchell', reviewedAt: '25 Feb 2026, 09:30', outcomeType: 'approved', assignedTo: 't1' },
+  { id: 'c45', submissionId: 's152', assessorId: 't4', status: 'Rejected', reviewerName: 'Tom Bradley', reviewedAt: '25 Feb 2026, 14:00', feedback: 'Grading criteria misapplied.', outcomeType: 'recheck-assessor', assignedTo: 't6' },
+  { id: 'c46', submissionId: 's155', assessorId: 't4', status: 'Pending', assignedTo: 't2' },
+  { id: 'c47', submissionId: 's158', assessorId: 't4', status: 'Pending' },
+  { id: 'c48', submissionId: 's162', assessorId: 't4', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '26 Feb 2026, 10:00', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c49', submissionId: 's168', assessorId: 't4', status: 'Pending', assignedTo: 't1' },
+  { id: 'c50', submissionId: 's172', assessorId: 't4', status: 'Pending' },
+  { id: 'c51', submissionId: 's175', assessorId: 't4', status: 'Approved', reviewerName: 'Tom Bradley', reviewedAt: '27 Feb 2026, 11:30', outcomeType: 'approved', assignedTo: 't6' },
+  { id: 'c52', submissionId: 's178', assessorId: 't4', status: 'Pending', assignedTo: 't2' },
+  { id: 'c53', submissionId: 's182', assessorId: 't4', status: 'Pending' },
+  { id: 'c54', submissionId: 's188', assessorId: 't4', status: 'Rejected', reviewerName: 'Sarah Mitchell', reviewedAt: '1 Mar 2026, 09:00', feedback: 'Evidence quality insufficient.', outcomeType: 'recheck-assessor', assignedTo: 't1', reviewHistory: [{ version: 1, reviewerName: 'James Chen', reviewedAt: '26 Feb 2026, 10:00', outcome: 'recheck-assessor', feedback: 'Multiple criteria not met. Assessor gave pass but evidence does not support this.' }, { version: 2, reviewerName: 'Tom Bradley', reviewedAt: '28 Feb 2026, 14:30', outcome: 'recheck-assessor', feedback: 'Re-graded but still inconsistent. Practical observation missing.' }, { version: 3, reviewerName: 'Sarah Mitchell', reviewedAt: '1 Mar 2026, 09:00', outcome: 'recheck-assessor', feedback: 'Evidence quality insufficient.' }] },
+  { id: 'c55', submissionId: 's192', assessorId: 't4', status: 'Pending', assignedTo: 't6' },
+  { id: 'c56', submissionId: 's195', assessorId: 't4', status: 'Pending' },
+  { id: 'c57', submissionId: 's200', assessorId: 't4', status: 'Pending', assignedTo: 't2' },
+  { id: 'c58', submissionId: 's205', assessorId: 't4', status: 'Approved', reviewerName: 'David Kumar', reviewedAt: '1 Mar 2026, 14:30', outcomeType: 'approved', assignedTo: 't4' },
 ];
 
 // ── Categories ────────────────────────────────────────────────────────────
@@ -293,7 +350,20 @@ export function updateIqaCheck(id: string, update: Partial<IqaCheck>) {
   if (typeof window === 'undefined') return;
   try {
     const overrides = getOverrides();
-    overrides[id] = { ...overrides[id], ...update };
+    const prev = overrides[id] ?? {};
+    if (update.outcomeType && update.reviewerName && update.reviewedAt) {
+      const existing: IqaReviewRound[] = prev.reviewHistory ?? [];
+      const nextVersion = existing.length + 1;
+      existing.push({
+        version: nextVersion,
+        reviewerName: update.reviewerName,
+        reviewedAt: update.reviewedAt,
+        outcome: update.outcomeType,
+        feedback: update.feedback ?? '',
+      });
+      update.reviewHistory = existing;
+    }
+    overrides[id] = { ...prev, ...update };
     sessionStorage.setItem(IQA_CHECKS_STORAGE_KEY, JSON.stringify(overrides));
     window.dispatchEvent(new CustomEvent('iqa-checks-updated'));
   } catch { /* ignore */ }

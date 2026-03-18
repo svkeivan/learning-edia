@@ -145,6 +145,7 @@ const sections: NavSection[] = [
     icon: <IconIqa />,
     children: [
       { name: 'Review Queue', href: '/iqa/review-queue' },
+      { name: 'Sampling', href: '/iqa/sampling' },
       { name: 'Assign for Recheck', href: '/iqa/assign' },
       { name: 'People & Roles', href: '/iqa/people' },
       { name: 'Categories', href: '/iqa/categories' },

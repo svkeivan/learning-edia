@@ -76,6 +76,7 @@ export default function IqaPeoplePage() {
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Name</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Email</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Category</th>
+              <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Risk Level</th>
               <th className="text-left text-xs font-semibold text-gray-600 uppercase tracking-wide px-5 py-4">Recheck %</th>
             </tr>
           </thead>
@@ -96,6 +97,19 @@ export default function IqaPeoplePage() {
                   </td>
                   <td className="px-5 py-4">
                     {category ? (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        category.riskLevel === 'High' ? 'bg-red-100 text-red-700'
+                          : category.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700'
+                            : 'bg-green-100 text-green-700'
+                      }`}>
+                        {category.riskLevel}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    {category ? (
                       <span className="text-sm font-semibold text-orange-600">{category.recheckPercent}%</span>
                     ) : (
                       <span className="text-sm text-gray-400">—</span>
@@ -105,7 +119,7 @@ export default function IqaPeoplePage() {
               );
             })}
             {assessors.length === 0 && (
-              <tr><td colSpan={4} className="px-5 py-10 text-center text-sm text-gray-400">No assessors added yet.</td></tr>
+              <tr><td colSpan={5} className="px-5 py-10 text-center text-sm text-gray-400">No assessors added yet.</td></tr>
             )}
           </tbody>
         </table>

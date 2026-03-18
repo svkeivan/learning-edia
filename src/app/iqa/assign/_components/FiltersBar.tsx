@@ -13,6 +13,8 @@ interface Props {
   filterStatus: string;
   filterReviewer: string;
   filterCohort: string;
+  filterDateFrom: string;
+  filterDateTo: string;
   uniqueAssessors: IqaTutor[];
   uniqueCategories: IqaCategory[];
   uniqueExams: Assessment[];
@@ -29,7 +31,10 @@ interface Props {
   onStatusChange: (v: string) => void;
   onReviewerChange: (v: string) => void;
   onCohortChange: (v: string) => void;
+  onDateFromChange: (v: string) => void;
+  onDateToChange: (v: string) => void;
   onClearFilters: () => void;
+  onExport: () => void;
 }
 
 const selectCls = 'text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300';
@@ -114,14 +119,15 @@ function SearchableSelect({
 export function FiltersBar({
   tab,
   filterStudent, filterAssessor, filterCategory, filterTrade, filterExam, filterStatus,
-  filterReviewer, filterCohort,
+  filterReviewer, filterCohort, filterDateFrom, filterDateTo,
   uniqueAssessors, uniqueCategories, uniqueExams, uniqueReviewers, uniqueCohorts,
   filteredCount, totalCount, hasActiveFilters,
   onStudentChange, onAssessorChange, onCategoryChange, onTradeChange, onExamChange, onStatusChange,
-  onReviewerChange, onCohortChange,
-  onClearFilters,
+  onReviewerChange, onCohortChange, onDateFromChange, onDateToChange,
+  onClearFilters, onExport,
 }: Props) {
   const examOptions = uniqueExams.map(a => ({ id: a.id, label: a.title }));
+  const cohortOptions = uniqueCohorts.map(c => ({ id: c, label: c }));
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
@@ -165,10 +171,12 @@ export function FiltersBar({
           onChange={onExamChange}
         />
 
-        <select value={filterCohort} onChange={e => onCohortChange(e.target.value)} className={selectCls}>
-          <option value="">All Cohorts</option>
-          {uniqueCohorts.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <SearchableSelect
+          value={filterCohort}
+          options={cohortOptions}
+          placeholder="All Cohorts"
+          onChange={onCohortChange}
+        />
 
         {tab === 'all' && (
           <>
@@ -195,6 +203,31 @@ export function FiltersBar({
             <option value="Rejected">Rejected</option>
           </select>
         )}
+      </div>
+
+      {/* Date range + actions row */}
+      <div className="flex items-center gap-3 mt-3 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-400">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+          </svg>
+          <span className="text-xs font-medium text-gray-500">Date</span>
+        </div>
+        <input
+          type="date"
+          value={filterDateFrom}
+          onChange={e => onDateFromChange(e.target.value)}
+          className={`${selectCls} w-36 text-xs`}
+          placeholder="From"
+        />
+        <span className="text-xs text-gray-400">to</span>
+        <input
+          type="date"
+          value={filterDateTo}
+          onChange={e => onDateToChange(e.target.value)}
+          className={`${selectCls} w-36 text-xs`}
+          placeholder="To"
+        />
 
         {hasActiveFilters && (
           <button
@@ -205,9 +238,20 @@ export function FiltersBar({
           </button>
         )}
 
-        <span className="text-xs text-gray-400 ml-auto">
-          {filteredCount} of {totalCount} shown
-        </span>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-gray-400">
+            {filteredCount} of {totalCount} shown
+          </span>
+          <button
+            onClick={onExport}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
       </div>
     </div>
   );
