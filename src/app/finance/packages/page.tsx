@@ -10,9 +10,8 @@ function totalRefundExposure(pkg: FinancePackage): number {
   return pkg.stages.reduce((sum, s) => sum + s.exposedRefund, 0);
 }
 
-function digitalAssetsTotal(pkg: FinancePackage): number {
-  const deliverySum = pkg.stages.reduce((s, st) => s + st.price, 0);
-  return Math.round(deliverySum * pkg.digitalAccessPercent / 100);
+function moduleDeliveryTotal(pkg: FinancePackage): number {
+  return pkg.stages.reduce((s, st) => s + st.price, 0);
 }
 
 function totalActivities(pkg: FinancePackage): number {
@@ -86,7 +85,7 @@ function PricingProgressBar({ pkg }: { pkg: FinancePackage }) {
 
 function PackageCard({ pkg }: { pkg: FinancePackage }) {
   const refundTotal = totalRefundExposure(pkg);
-  const digitalTotal = digitalAssetsTotal(pkg);
+  const moduleTotal = moduleDeliveryTotal(pkg);
   const activityCount = totalActivities(pkg);
 
   return (
@@ -113,19 +112,20 @@ function PackageCard({ pkg }: { pkg: FinancePackage }) {
         <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{activityCount} activities</span>
       </div>
 
-      {/* Financial stats: total price, total refund, digital assets */}
+      {/* Financial stats: module total, refund, digital share (%) */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="bg-gray-50 rounded-lg p-2.5">
-          <p className="text-xs text-gray-500 mb-0.5">Total Price</p>
-          <p className="text-sm font-bold text-gray-900">{formatPrice(pkg.totalPrice)}</p>
+          <p className="text-xs text-gray-500 mb-0.5">Package price</p>
+          <p className="text-sm font-bold text-gray-900">{formatPrice(moduleTotal)}</p>
         </div>
         <div className="bg-gray-50 rounded-lg p-2.5">
           <p className="text-xs text-gray-500 mb-0.5">Total Refund</p>
           <p className="text-sm font-bold text-gray-900">{formatPrice(refundTotal)}</p>
         </div>
         <div className="bg-gray-50 rounded-lg p-2.5">
-          <p className="text-xs text-gray-500 mb-0.5">Digital Assets</p>
-          <p className="text-sm font-bold text-gray-900">{formatPrice(digitalTotal)}</p>
+          <p className="text-xs text-gray-500 mb-0.5">Digital share</p>
+          <p className="text-sm font-bold text-gray-900 tabular-nums">{pkg.digitalAccessPercent}%</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">of delivery · not in price</p>
         </div>
       </div>
     </Link>

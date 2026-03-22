@@ -22,6 +22,10 @@ export interface FinanceStage {
   activities: FinanceActivity[];
   revenueRecognition: number;
   exposedRefund: number;
+  /** Admin: module can be offered/sold in this package context */
+  isSellable: boolean;
+  /** Admin: sales commission applies to this module */
+  isCommissionable: boolean;
 }
 
 export interface FinancePackage {
@@ -72,6 +76,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 45,
         revenueRecognition: 10,
         exposedRefund: 85,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a1-1', name: 'Electrical Safety Regulations Overview', type: 'Webinar', delivery: 'Online' },
           { id: 'a1-2', name: 'Risk Assessment Workshop', type: 'Practical', delivery: 'In-Person' },
@@ -88,6 +94,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 0,
         revenueRecognition: 20,
         exposedRefund: 70,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a2-1', name: "Ohm's Law & Circuit Theory", type: 'Webinar', delivery: 'Online' },
           { id: 'a2-2', name: 'Voltage, Current & Resistance', type: 'Video', delivery: 'Online' },
@@ -104,6 +112,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 0,
         revenueRecognition: 18,
         exposedRefund: 55,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a3-1', name: 'Wiring Regulations BS 7671', type: 'Reading', delivery: 'Online' },
           { id: 'a3-2', name: 'Consumer Unit Installation', type: 'Practical', delivery: 'In-Person' },
@@ -120,6 +130,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 45,
         revenueRecognition: 15,
         exposedRefund: 40,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a4-1', name: 'Initial Verification Procedures', type: 'Webinar', delivery: 'Online' },
           { id: 'a4-2', name: 'Insulation Resistance Testing', type: 'Practical', delivery: 'In-Person' },
@@ -137,6 +149,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 30,
         revenueRecognition: 12,
         exposedRefund: 30,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a5-1', name: 'Systematic Fault Finding', type: 'Webinar', delivery: 'Online' },
           { id: 'a5-2', name: 'Fault Diagnosis Workshop', type: 'Practical', delivery: 'In-Person' },
@@ -152,6 +166,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 45,
         revenueRecognition: 10,
         exposedRefund: 20,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a6-1', name: 'Notifiable vs Non-Notifiable Work', type: 'Reading', delivery: 'Online' },
           { id: 'a6-2', name: 'Competent Persons Scheme', type: 'Webinar', delivery: 'Online' },
@@ -167,6 +183,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 0,
         revenueRecognition: 8,
         exposedRefund: 10,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a7-1', name: 'Solar PV System Design', type: 'Webinar', delivery: 'Online' },
           { id: 'a7-2', name: 'EV Charging Installation', type: 'Practical', delivery: 'In-Person' },
@@ -183,6 +201,8 @@ export const financePackages: FinancePackage[] = [
         durationMinutes: 45,
         revenueRecognition: 7,
         exposedRefund: 5,
+        isSellable: true,
+        isCommissionable: true,
         activities: [
           { id: 'a8-1', name: 'Running Your Own Business', type: 'Reading', delivery: 'Online' },
           { id: 'a8-2', name: 'Quoting & Invoicing Workshop', type: 'Webinar', delivery: 'Online' },
@@ -211,7 +231,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs1', order: 1, courseName: 'Commercial Wiring Systems',
         price: 700, durationHours: 10, durationMinutes: 0,
-        revenueRecognition: 12, exposedRefund: 110,
+        revenueRecognition: 12, exposedRefund: 110, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca1-1', name: 'Three-Phase Systems Overview', type: 'Webinar', delivery: 'Online' },
           { id: 'ca1-2', name: 'Commercial Wiring Practical', type: 'Practical', delivery: 'In-Person' },
@@ -221,7 +241,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs2', order: 2, courseName: 'Industrial Power Distribution',
         price: 850, durationHours: 12, durationMinutes: 0,
-        revenueRecognition: 18, exposedRefund: 95,
+        revenueRecognition: 18, exposedRefund: 95, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca2-1', name: 'Switchgear & Protection', type: 'Webinar', delivery: 'Online' },
           { id: 'ca2-2', name: 'HV/LV Substations', type: 'Video', delivery: 'Online' },
@@ -232,7 +252,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs3', order: 3, courseName: 'Motor Control & Drives',
         price: 950, durationHours: 14, durationMinutes: 30,
-        revenueRecognition: 20, exposedRefund: 75,
+        revenueRecognition: 20, exposedRefund: 75, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca3-1', name: 'Motor Starters & Control', type: 'Webinar', delivery: 'Online' },
           { id: 'ca3-2', name: 'Variable Speed Drives', type: 'Video', delivery: 'Online' },
@@ -243,7 +263,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs4', order: 4, courseName: 'Building Management Systems',
         price: 800, durationHours: 11, durationMinutes: 0,
-        revenueRecognition: 15, exposedRefund: 55,
+        revenueRecognition: 15, exposedRefund: 55, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca4-1', name: 'BMS Architecture', type: 'Reading', delivery: 'Online' },
           { id: 'ca4-2', name: 'BMS Integration Workshop', type: 'Practical', delivery: 'In-Person' },
@@ -253,7 +273,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs5', order: 5, courseName: 'Emergency & Safety Systems',
         price: 650, durationHours: 9, durationMinutes: 0,
-        revenueRecognition: 13, exposedRefund: 35,
+        revenueRecognition: 13, exposedRefund: 35, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca5-1', name: 'Fire Alarm Systems', type: 'Webinar', delivery: 'Online' },
           { id: 'ca5-2', name: 'Emergency Lighting', type: 'Practical', delivery: 'In-Person' },
@@ -263,7 +283,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs6', order: 6, courseName: 'Commercial Testing & Commissioning',
         price: 700, durationHours: 10, durationMinutes: 30,
-        revenueRecognition: 11, exposedRefund: 20,
+        revenueRecognition: 11, exposedRefund: 20, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca6-1', name: 'Commercial Test Procedures', type: 'Webinar', delivery: 'Online' },
           { id: 'ca6-2', name: 'Commissioning Workshop', type: 'Practical', delivery: 'In-Person' },
@@ -273,7 +293,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs7', order: 7, courseName: 'Energy Management & Efficiency',
         price: 550, durationHours: 8, durationMinutes: 0,
-        revenueRecognition: 7, exposedRefund: 8,
+        revenueRecognition: 7, exposedRefund: 8, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca7-1', name: 'Energy Auditing', type: 'Reading', delivery: 'Online' },
           { id: 'ca7-2', name: 'Energy Efficiency Assessment', type: 'Exam', delivery: 'Online' },
@@ -282,7 +302,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'cs8', order: 8, courseName: 'Contract Management & Compliance',
         price: 200, durationHours: 7, durationMinutes: 0,
-        revenueRecognition: 4, exposedRefund: 3,
+        revenueRecognition: 4, exposedRefund: 3, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ca8-1', name: 'Contract Law for Electricians', type: 'Reading', delivery: 'Online' },
           { id: 'ca8-2', name: 'Compliance Documentation', type: 'Webinar', delivery: 'Online' },
@@ -311,7 +331,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'gs1', order: 1, courseName: 'Gas Safety & Regulations',
         price: 600, durationHours: 8, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ga1-1', name: 'Gas Safety Regulations Overview', type: 'Webinar', delivery: 'Online' },
           { id: 'ga1-2', name: 'Safe Working Practices', type: 'Practical', delivery: 'In-Person' },
@@ -321,7 +341,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'gs2', order: 2, courseName: 'Combustion Principles',
         price: 700, durationHours: 9, durationMinutes: 30,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ga2-1', name: 'Combustion Theory', type: 'Video', delivery: 'Online' },
           { id: 'ga2-2', name: 'Flue Systems & Ventilation', type: 'Webinar', delivery: 'Online' },
@@ -332,7 +352,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'gs3', order: 3, courseName: 'Domestic Appliance Installation',
         price: 900, durationHours: 13, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ga3-1', name: 'Boiler Installation Procedures', type: 'Practical', delivery: 'In-Person' },
           { id: 'ga3-2', name: 'Appliance Commissioning', type: 'Webinar', delivery: 'Online' },
@@ -342,7 +362,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'gs4', order: 4, courseName: 'Central Heating Systems',
         price: 0, durationHours: 12, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ga4-1', name: 'Heating System Design', type: 'Reading', delivery: 'Online' },
           { id: 'ga4-2', name: 'Pump & Controls Workshop', type: 'Practical', delivery: 'In-Person' },
@@ -352,7 +372,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'gs5', order: 5, courseName: 'Gas Emergency Procedures',
         price: 0, durationHours: 9, durationMinutes: 45,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ga5-1', name: 'Emergency Response Procedures', type: 'Webinar', delivery: 'Online' },
           { id: 'ga5-2', name: 'Gas Leak Response Drill', type: 'Practical', delivery: 'In-Person' },
@@ -362,7 +382,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'gs6', order: 6, courseName: 'Gas Pipework & Tightness Testing',
         price: 0, durationHours: 7, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ga6-1', name: 'Pipework Installation', type: 'Practical', delivery: 'In-Person' },
           { id: 'ga6-2', name: 'Tightness Testing Workshop', type: 'Webinar', delivery: 'Online' },
@@ -372,7 +392,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'gs7', order: 7, courseName: 'CCN1 Exam Preparation',
         price: 0, durationHours: 16, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'ga7-1', name: 'Mock Exam Practice', type: 'Exam', delivery: 'Online' },
           { id: 'ga7-2', name: 'Revision Workshop', type: 'Webinar', delivery: 'Online' },
@@ -401,7 +421,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'ps1', order: 1, courseName: 'Plumbing Fundamentals',
         price: 0, durationHours: 7, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'pa1-1', name: 'Water Regulations Overview', type: 'Webinar', delivery: 'Online' },
           { id: 'pa1-2', name: 'Pipe Jointing Practical', type: 'Practical', delivery: 'In-Person' },
@@ -411,7 +431,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'ps2', order: 2, courseName: 'Cold & Hot Water Systems',
         price: 0, durationHours: 9, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'pa2-1', name: 'Cold Water Storage Systems', type: 'Video', delivery: 'Online' },
           { id: 'pa2-2', name: 'Hot Water Cylinder Installation', type: 'Practical', delivery: 'In-Person' },
@@ -421,7 +441,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'ps3', order: 3, courseName: 'Drainage & Sanitation',
         price: 0, durationHours: 10, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'pa3-1', name: 'Drainage System Design', type: 'Reading', delivery: 'Online' },
           { id: 'pa3-2', name: 'Sanitation Installation Workshop', type: 'Practical', delivery: 'In-Person' },
@@ -431,7 +451,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'ps4', order: 4, courseName: 'Bathroom & Wetroom Installations',
         price: 0, durationHours: 11, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'pa4-1', name: 'Bathroom Suite Installation', type: 'Practical', delivery: 'In-Person' },
           { id: 'pa4-2', name: 'Wetroom Waterproofing', type: 'Webinar', delivery: 'Online' },
@@ -441,7 +461,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'ps5', order: 5, courseName: 'Heating System Installation',
         price: 0, durationHours: 10, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'pa5-1', name: 'Radiator & Underfloor Heating', type: 'Webinar', delivery: 'Online' },
           { id: 'pa5-2', name: 'Heating Installation Practical', type: 'Practical', delivery: 'In-Person' },
@@ -451,7 +471,7 @@ export const financePackages: FinancePackage[] = [
       {
         id: 'ps6', order: 6, courseName: 'Commercial Plumbing & Maintenance',
         price: 0, durationHours: 11, durationMinutes: 0,
-        revenueRecognition: 0, exposedRefund: 0,
+        revenueRecognition: 0, exposedRefund: 0, isSellable: true, isCommissionable: true,
         activities: [
           { id: 'pa6-1', name: 'Legionella Risk Management', type: 'Reading', delivery: 'Online' },
           { id: 'pa6-2', name: 'Commercial Systems Overview', type: 'Webinar', delivery: 'Online' },
