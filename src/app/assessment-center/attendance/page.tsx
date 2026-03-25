@@ -79,6 +79,7 @@ function SessionItem({
       </div>
       <p className="text-xs text-gray-500 mt-0.5 ml-3.5">{session.date}</p>
       <p className="text-xs text-gray-400 ml-3.5">{session.room}</p>
+      <p className="text-xs text-gray-500 mt-1.5 ml-3.5 leading-snug line-clamp-2">{session.description}</p>
     </button>
   );
 }
@@ -520,12 +521,59 @@ function FuturePanel({ session }: { session: AttendanceSession }) {
   );
 }
 
+// ─── Class context + tutor notes (detail view) ───────────────────────────────
+
+function SessionDescriptionCard({ session }: { session: AttendanceSession }) {
+  return (
+    <div className="bg-slate-50 rounded-xl border border-slate-200/90 px-5 py-4">
+      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">About this session</p>
+      <p className="text-sm font-medium text-slate-800 mb-1">{session.label} · {session.date}</p>
+      <p className="text-sm text-slate-700 leading-relaxed">{session.description}</p>
+    </div>
+  );
+}
+
+function TutorNotesCard({
+  sessionId,
+  sessionLabel,
+  sessionDate,
+  value,
+  onChange,
+}: {
+  sessionId: string;
+  sessionLabel: string;
+  sessionDate: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const fieldId = `tutor-notes-${sessionId}`;
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <label htmlFor={fieldId} className="text-sm font-semibold text-gray-900">
+        Tutor notes
+      </label>
+      <p className="text-xs text-gray-500 mt-0.5 mb-2">
+        For {sessionLabel} ({sessionDate}). Optional — for handover, IQA, or session context.
+      </p>
+      <textarea
+        id={fieldId}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        rows={4}
+        placeholder="e.g. Late arrivals, kit issues, learners to follow up, topics to recap…"
+        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-y min-h-[100px] text-gray-800 placeholder:text-gray-400"
+      />
+    </div>
+  );
+}
+
 // ─── Detail view ─────────────────────────────────────────────────────────────
 
 function AttendanceDetail({ event, onBack }: { event: AttendanceEvent; onBack: () => void }) {
   // Default: today's session, otherwise first session
   const defaultSession = event.sessions.find(s => s.isToday) ?? event.sessions[0];
   const [selectedSession, setSelectedSession] = useState<AttendanceSession>(defaultSession);
+  const [tutorNotesBySession, setTutorNotesBySession] = useState<Record<string, string>>({});
 
   // Per-session attendance state (only matters for today's session)
   const [attendance, setAttendance] = useState<StudentAttendance>(() => {
@@ -609,6 +657,16 @@ function AttendanceDetail({ event, onBack }: { event: AttendanceEvent; onBack: (
 
         {/* Main panel */}
         <div className="flex-1 min-w-0 space-y-4">
+          <SessionDescriptionCard session={selectedSession} />
+          <TutorNotesCard
+            sessionId={selectedSession.id}
+            sessionLabel={selectedSession.label}
+            sessionDate={selectedSession.date}
+            value={tutorNotesBySession[selectedSession.id] ?? ''}
+            onChange={next =>
+              setTutorNotesBySession(prev => ({ ...prev, [selectedSession.id]: next }))
+            }
+          />
           {type === 'today' && event.eventType === 'Webinar' && (
             <WebinarTodayPanel session={selectedSession} />
           )}
@@ -828,9 +886,11 @@ export default function AttendancePage() {
   const todayCount = attendanceEvents.flatMap(e => e.sessions).filter(s => s.isToday).length;
 
   const filtered = attendanceEvents.filter(e => {
+    const q = search.toLowerCase();
     const matchSearch =
-      e.course.toLowerCase().includes(search.toLowerCase()) ||
-      e.trade.toLowerCase().includes(search.toLowerCase());
+      e.course.toLowerCase().includes(q) ||
+      e.trade.toLowerCase().includes(q) ||
+      e.sessions.some(s => s.description.toLowerCase().includes(q));
     const matchType = typeFilter === 'All' || e.eventType === typeFilter;
     return matchSearch && matchType;
   });

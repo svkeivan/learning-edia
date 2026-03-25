@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
-import { getIqaChecks, getIqaTutors } from '@/lib/iqa-data';
+import { getIqaChecks, getIqaTutors, getCohortIqaCompletedAt } from '@/lib/iqa-data';
 import { cohorts, submissions, assessments } from '@/lib/mock-data';
 import type { IqaCheck } from '@/lib/iqa-data';
 
@@ -38,12 +38,18 @@ export default function SamplingPage() {
   const [filterAssessor, setFilterAssessor] = useState('all');
   const [search, setSearch] = useState('');
 
+  const [bump, setBump] = useState(0);
+
   useEffect(() => {
     setMounted(true);
-    const refresh = () => setChecks(getIqaChecks());
+    const refresh = () => { setChecks(getIqaChecks()); setBump(b => b + 1); };
     refresh();
     window.addEventListener('iqa-checks-updated', refresh);
-    return () => window.removeEventListener('iqa-checks-updated', refresh);
+    window.addEventListener('iqa-cohort-completed-updated', refresh);
+    return () => {
+      window.removeEventListener('iqa-checks-updated', refresh);
+      window.removeEventListener('iqa-cohort-completed-updated', refresh);
+    };
   }, []);
 
   const cohortStats = useMemo(() => {
@@ -61,6 +67,9 @@ export default function SamplingPage() {
       const assessor = tutors.find(t => t.id === coh.assessorId);
       const exams = coh.examIds.map(id => assessments.find(a => a.id === id)).filter(Boolean);
 
+      const reviewer = coh.iqaReviewerId ? tutors.find(t => t.id === coh.iqaReviewerId) : undefined;
+      const completedAt = getCohortIqaCompletedAt(coh.id);
+
       return {
         cohort: coh,
         totalSubs: cohortSubs.length,
@@ -70,10 +79,13 @@ export default function SamplingPage() {
         notReviewed,
         reviewed: approved + rejected,
         assessor,
+        reviewer,
+        completedAt,
         exams,
       };
     });
-  }, [checks, tutors]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checks, tutors, bump]);
 
   const uniqueTrades = [...new Set(cohorts.map(c => c.trade))];
   const uniqueAssessors = useMemo(() => {
@@ -124,7 +136,7 @@ export default function SamplingPage() {
         </p>
         <h1 className="text-2xl font-bold text-gray-900">Sampling</h1>
         <p className="text-gray-500 text-sm mt-1">
-          View cohort IQA review progress and manage assessment sampling
+          Overview of cohort IQA review progress and reviewer assignments
         </p>
       </div>
 
@@ -206,8 +218,10 @@ export default function SamplingPage() {
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Trade</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessor</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Reviewer</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Students</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Exams</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[160px]">IQA Progress</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Breakdown</th>
                 </tr>
@@ -232,10 +246,22 @@ export default function SamplingPage() {
                       <span className="text-sm text-gray-700">{cs.assessor?.name ?? '—'}</span>
                     </td>
                     <td className="py-3.5 px-5">
+                      <span className="text-sm text-gray-700">{cs.reviewer?.name ?? <span className="text-gray-400">—</span>}</span>
+                    </td>
+                    <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-600">{cs.cohort.students.length}</span>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-600">{cs.cohort.examIds.length}</span>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      {cs.completedAt ? (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Completed</span>
+                      ) : cs.reviewed > 0 ? (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">In Progress</span>
+                      ) : (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Not Started</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-5">
                       <ProgressBar reviewed={cs.reviewed} total={cs.totalSubs} />

@@ -226,6 +226,8 @@ export interface Cohort {
   name: string;
   trade: 'Gas Engineering' | 'Electrical' | 'Plumbing';
   assessorId: string;
+  /** Lead IQA reviewer responsible for this cohort’s system review queue */
+  iqaReviewerId?: string;
   examIds: string[];
   examDates: string[];
   packageName: string;
@@ -238,6 +240,7 @@ export const cohorts: Cohort[] = [
     name: 'London-Room3A-10Feb26',
     trade: 'Gas Engineering',
     assessorId: 't1',
+    iqaReviewerId: 't2',
     examIds: ['a1', 'a4', 'a7'],
     examDates: ['10 Feb 2026', '12 Feb 2026', '14 Feb 2026'],
     packageName: 'Professional Gas Engineer',
@@ -264,6 +267,7 @@ export const cohorts: Cohort[] = [
     name: 'Manchester-Lab1-03Feb26',
     trade: 'Electrical',
     assessorId: 't3',
+    iqaReviewerId: 't2',
     examIds: ['a2', 'a5', 'a8'],
     examDates: ['3 Feb 2026', '5 Feb 2026', '7 Feb 2026'],
     packageName: 'Professional Electrician',
@@ -293,6 +297,7 @@ export const cohorts: Cohort[] = [
     name: 'Birmingham-WorkshopB-17Feb26',
     trade: 'Plumbing',
     assessorId: 't5',
+    iqaReviewerId: 't6',
     examIds: ['a3', 'a6', 'a9'],
     examDates: ['17 Feb 2026', '19 Feb 2026', '21 Feb 2026'],
     packageName: 'Master Plumber Bundle',
@@ -320,6 +325,7 @@ export const cohorts: Cohort[] = [
     name: 'Leeds-Room2B-24Feb26',
     trade: 'Electrical',
     assessorId: 't4',
+    iqaReviewerId: 't1',
     examIds: ['a2', 'a5', 'a8'],
     examDates: ['24 Feb 2026', '26 Feb 2026', '28 Feb 2026'],
     packageName: 'Electrical Installer (Level 2)',
@@ -430,6 +436,13 @@ for (const coh of cohorts) {
 
 export function getStudentCohort(email: string): string | undefined {
   return cohortByEmail.get(email);
+}
+
+/** Cohort whose students and exams include this graded submission (for IQA routing). */
+export function findCohortForSubmission(email: string, assessmentId: string): Cohort | undefined {
+  return cohorts.find(
+    c => c.students.some(s => s.email === email) && c.examIds.includes(assessmentId),
+  );
 }
 
 export function parseSubmitDate(dateStr: string): Date | null {
@@ -558,6 +571,8 @@ export interface AttendanceSession {
   date: string;
   time: string;
   room: string;
+  /** What this scheduled session covers (shown in sidebar and detail). */
+  description: string;
   /** exactly one of these will be true, or both false (= past) */
   isToday: boolean;
   isFuture: boolean;
@@ -630,16 +645,19 @@ export const attendanceEvents: AttendanceEvent[] = [
     sessions: [
       {
         id: 'ses0a', label: 'Session 1', date: 'Tue, 27 Jan 2026', time: '09:00 – 17:00', room: 'Room 1A',
+        description: 'UK gas safety legislation, duty holders, and how classroom rules map to site behaviour.',
         isToday: false, isFuture: false,
         students: gasStudents.map(s => ({ ...s, status: s.id === 'st3' ? 'Absent' as AttendanceStatus : 'Present' as AttendanceStatus })),
       },
       {
         id: 'ses0b', label: 'Session 2', date: 'Tue, 4 Feb 2026', time: '09:00 – 17:00', room: 'Room 1A',
+        description: 'Common gas hazards, emergency procedures, CO awareness, and correct use of PPE.',
         isToday: false, isFuture: false,
         students: gasStudents.map(s => ({ ...s, status: 'Present' as AttendanceStatus })),
       },
       {
         id: 'ses0c', label: 'Session 3', date: 'Fri, 14 Feb 2026', time: '09:00 – 17:00', room: 'Room 1A',
+        description: 'Recap of key topics, practice questions, and guidance for the end-of-block knowledge check.',
         isToday: false, isFuture: false,
         students: gasStudents.map(s => ({ ...s, status: s.id === 'st5' ? 'Absent' as AttendanceStatus : 'Present' as AttendanceStatus })),
       },
@@ -659,11 +677,13 @@ export const attendanceEvents: AttendanceEvent[] = [
     sessions: [
       {
         id: 'ses1', label: 'Session 1', date: 'Mon, 10 Feb 2026', time: '09:00 – 17:00', room: 'Room 3A',
+        description: 'Gas properties, complete combustion, and reading flame pictures safely on training rigs.',
         isToday: false, isFuture: false,
         students: gasStudents.map(s => ({ ...s, status: s.id === 'st3' ? 'Absent' as AttendanceStatus : 'Present' as AttendanceStatus })),
       },
       {
         id: 'ses2', label: 'Session 2', date: 'Wed, 12 Feb 2026', time: '09:00 – 17:00', room: 'Room 3A',
+        description: 'Ventilation requirements, flue types, spillage testing concepts, and documentation.',
         isToday: false, isFuture: false,
         students: gasStudents.map(s => ({
           ...s,
@@ -672,21 +692,25 @@ export const attendanceEvents: AttendanceEvent[] = [
       },
       {
         id: 'ses3', label: 'Session 3', date: 'Wed, 18 Feb 2026', time: '09:00 – 17:00', room: 'Room 2B',
+        description: 'Tightness testing procedure, purging, and safe re-establishment of gas supplies (practical).',
         isToday: true, isFuture: false,
         students: gasStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses3a', label: 'Session 4', date: 'Fri, 21 Feb 2026', time: '09:00 – 17:00', room: 'Room 2B',
+        description: 'Pipe sizing basics, fittings, and workshop exercises on copper and CSST.',
         isToday: false, isFuture: true,
         students: gasStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses3b', label: 'Session 5', date: 'Mon, 24 Feb 2026', time: '09:00 – 17:00', room: 'Room 3A',
+        description: 'Appliance safety checks, unsafe situations, and isolation / warning notices.',
         isToday: false, isFuture: true,
         students: gasStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses3c', label: 'Session 6', date: 'Fri, 28 Feb 2026', time: '09:00 – 17:00', room: 'Room 3A',
+        description: 'Portfolio evidence, mock assessments, and individual action plans before sign-off.',
         isToday: false, isFuture: true,
         students: gasStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
@@ -704,21 +728,25 @@ export const attendanceEvents: AttendanceEvent[] = [
     sessions: [
       {
         id: 'ses4', label: 'Session 1', date: 'Mon, 16 Feb 2026', time: '10:00 – 16:00', room: 'Lab 1',
+        description: 'DC networks recap, AC waveforms, RMS vs peak, and simple phasor introduction.',
         isToday: false, isFuture: false,
         students: circuitStudents.map(s => ({ ...s, status: s.id === 'st9' ? 'Absent' as AttendanceStatus : 'Present' as AttendanceStatus })),
       },
       {
         id: 'ses5', label: 'Session 2', date: 'Wed, 18 Feb 2026', time: '10:00 – 16:00', room: 'Lab 1',
+        description: 'Three-phase basics, balanced loads, power factor, and harmonics at a practical level.',
         isToday: true, isFuture: false,
         students: circuitStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses5a', label: 'Session 3', date: 'Mon, 23 Feb 2026', time: '10:00 – 16:00', room: 'Lab 1',
+        description: 'Guided fault-finding scenarios on simulation boards and interpreting test results.',
         isToday: false, isFuture: true,
         students: circuitStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses5b', label: 'Session 4', date: 'Fri, 6 Mar 2026', time: '10:00 – 16:00', room: 'Lab 2',
+        description: 'BS 7671 design exercises: cable sizing, protective devices, and discrimination.',
         isToday: false, isFuture: true,
         students: circuitStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
@@ -736,26 +764,31 @@ export const attendanceEvents: AttendanceEvent[] = [
     sessions: [
       {
         id: 'ses6', label: 'Session 1', date: 'Wed, 18 Feb 2026', time: '08:30 – 15:30', room: 'Workshop B',
+        description: 'Cold water supplies, stop taps, pipe materials, and workshop H&S in the bay.',
         isToday: true, isFuture: false,
         students: plumbingStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses6a', label: 'Session 2', date: 'Fri, 20 Feb 2026', time: '08:30 – 15:30', room: 'Workshop B',
+        description: 'Hot water systems, cylinders, expansion, and basic temperature controls.',
         isToday: false, isFuture: true,
         students: plumbingStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses6b', label: 'Session 3', date: 'Tue, 24 Feb 2026', time: '08:30 – 15:30', room: 'Workshop A',
+        description: 'Cutting, bending, and jointing copper and plastic; leak testing.',
         isToday: false, isFuture: true,
         students: plumbingStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses6c', label: 'Session 4', date: 'Fri, 27 Feb 2026', time: '08:30 – 15:30', room: 'Workshop B',
+        description: 'Above-ground drainage, traps, vents, and simple stack layouts.',
         isToday: false, isFuture: true,
         students: plumbingStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
       {
         id: 'ses6d', label: 'Session 5', date: 'Wed, 4 Mar 2026', time: '08:30 – 15:30', room: 'Workshop B',
+        description: 'Mini install project tying cold, hot, and waste together with sign-off checklist.',
         isToday: false, isFuture: true,
         students: plumbingStudents.map(s => ({ ...s, status: 'Unmarked' as AttendanceStatus })),
       },
@@ -775,6 +808,7 @@ export const attendanceEvents: AttendanceEvent[] = [
     sessions: [
       {
         id: 'ses7a', label: 'Session 1', date: 'Mon, 2 Mar 2026', time: '10:00 – 16:00', room: 'Lab 2',
+        description: 'Solar PV chain: modules, inverters, metering, and shading / orientation basics.',
         isToday: false, isFuture: true,
         students: [
           { id: 'st15', name: 'Ben Thomas', email: 'b.thomas@email.com', status: 'Unmarked' },
@@ -786,6 +820,7 @@ export const attendanceEvents: AttendanceEvent[] = [
       },
       {
         id: 'ses7b', label: 'Session 2', date: 'Wed, 4 Mar 2026', time: '10:00 – 16:00', room: 'Lab 2',
+        description: 'Heat pumps: ASHP vs GSHP, flow temperatures, emitters, and planning constraints.',
         isToday: false, isFuture: true,
         students: [
           { id: 'st15', name: 'Ben Thomas', email: 'b.thomas@email.com', status: 'Unmarked' },
@@ -797,6 +832,7 @@ export const attendanceEvents: AttendanceEvent[] = [
       },
       {
         id: 'ses7c', label: 'Session 3', date: 'Mon, 9 Mar 2026', time: '10:00 – 16:00', room: 'Lab 2',
+        description: 'Battery storage, smart tariffs, and how renewables interact with the distribution network.',
         isToday: false, isFuture: true,
         students: [
           { id: 'st15', name: 'Ben Thomas', email: 'b.thomas@email.com', status: 'Unmarked' },
@@ -808,6 +844,7 @@ export const attendanceEvents: AttendanceEvent[] = [
       },
       {
         id: 'ses7d', label: 'Session 4', date: 'Fri, 20 Mar 2026', time: '10:00 – 16:00', room: 'Lab 2',
+        description: 'Case studies: combining PV, storage, and heat pumps; Q&A and further learning routes.',
         isToday: false, isFuture: true,
         students: [
           { id: 'st15', name: 'Ben Thomas', email: 'b.thomas@email.com', status: 'Unmarked' },

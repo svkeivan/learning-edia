@@ -7,21 +7,11 @@ import {
   getIqaTutors,
   getIqaCategories,
   getSkippedSubmissionIds,
-  skipSubmissions,
-  unskipSubmission,
-  autoAssignReviewer,
-  addIqaCheck,
-  updateIqaCheck,
-  removeIqaCheck,
 } from '@/lib/iqa-data';
-import { submissions, assessments, getStudentPackage, getStudentCohort, parseSubmitDate } from '@/lib/mock-data';
+import { submissions, assessments, getStudentPackage, getStudentCohort, findCohortForSubmission, parseSubmitDate } from '@/lib/mock-data';
 
 import { FiltersBar } from './_components/FiltersBar';
-import { BulkActionsBar } from './_components/BulkActionsBar';
 import { AssignTable } from './_components/AssignTable';
-import { IqaHistoryModal } from './_components/IqaHistoryModal';
-import { ConfirmDialog } from './_components/ConfirmDialog';
-import { AssignReviewerModal } from './_components/AssignReviewerModal';
 
 import type { Tab, SortKey, EnrichedSubmission, IqaCheck, IqaTutor, IqaCategory } from './types';
 import { PAGE_SIZE } from './types';
@@ -36,17 +26,8 @@ export default function IqaAssignPage() {
   const [mounted, setMounted] = useState(false);
 
   // ── UI state ─────────────────────────────────────────────────────────────
-  const [tab, setTab] = useState<Tab>('not-queue');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState('');
+  const [tab, setTab] = useState<Tab>('all');
   const [allPage, setAllPage] = useState(1);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [confirmBulkAction, setConfirmBulkAction] = useState<'skip' | 'unassign' | null>(null);
-  const [assignModalSubmissionId, setAssignModalSubmissionId] = useState<string | null>(null);
-
-  // Bulk assign
-  const [bulkAssignTutor, setBulkAssignTutor] = useState('');
-  const [showBulkAssign, setShowBulkAssign] = useState(false);
 
   // Filters
   const [filterStudent, setFilterStudent] = useState('');
@@ -86,19 +67,6 @@ export default function IqaAssignPage() {
     };
   }, [refresh]);
 
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(''), 3500);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    setSelected(new Set());
-    setShowBulkAssign(false);
-    setShowHistoryModal(false);
-  }, [tab]);
-
   // ── Derived data ─────────────────────────────────────────────────────────
   const gradedSubmissions = useMemo(
     () => submissions.filter(s => s.gradedBy && s.score !== null),
@@ -110,10 +78,13 @@ export default function IqaAssignPage() {
       const assessment = assessments.find(a => a.id === sub.assessmentId);
       const assessor = tutors.find(t => t.id === sub.gradedBy);
       const check = checks.find(c => c.submissionId === sub.id);
-      const assignedReviewer = check?.assignedTo ? tutors.find(t => t.id === check.assignedTo) : undefined;
+      const cohortObj = findCohortForSubmission(sub.email, sub.assessmentId);
+      const assignedReviewer = cohortObj?.iqaReviewerId
+        ? tutors.find(t => t.id === cohortObj.iqaReviewerId)
+        : undefined;
       const category = assessor ? categories.find(c => c.id === assessor.categoryId) : undefined;
       const isSkipped = skipped.has(sub.id);
-      const cohort = getStudentCohort(sub.email);
+      const cohort = cohortObj?.name ?? getStudentCohort(sub.email);
       return { submission: sub, assessment, assessor, check, assignedReviewer, category, isSkipped, cohort };
     },
     [checks, tutors, categories, skipped],
@@ -209,13 +180,6 @@ export default function IqaAssignPage() {
 
   useEffect(() => { setAllPage(1); }, [filterAssessor, filterCategory, filterTrade, filterExam, filterStudent, filterReviewer, filterCohort, filterDateFrom, filterDateTo, tab]);
 
-  const allSelected = displayItems.length > 0 && displayItems.every(i => selected.has(i.submission.id));
-
-  const selectedItems = useMemo(
-    () => inQueueItems.filter(i => selected.has(i.submission.id)),
-    [inQueueItems, selected],
-  );
-
   // ── Filters helpers ───────────────────────────────────────────────────────
   const hasActiveFilters = !!(filterAssessor || filterCategory || filterTrade || filterExam || filterStatus || filterStudent || filterReviewer || filterCohort || filterDateFrom || filterDateTo);
 
@@ -230,122 +194,6 @@ export default function IqaAssignPage() {
     setFilterCohort('');
     setFilterDateFrom('');
     setFilterDateTo('');
-  };
-
-  // ── Actions ───────────────────────────────────────────────────────────────
-  const addToQueueWithAutoAssign = (submissionId: string) => {
-    const sub = submissions.find(s => s.id === submissionId);
-    if (!sub?.gradedBy) return null;
-    const assessorCategoryId = tutors.find(t => t.id === sub.gradedBy)?.categoryId;
-    const reviewer = autoAssignReviewer(sub.gradedBy, assessorCategoryId);
-    addIqaCheck({ submissionId, assessorId: sub.gradedBy, status: 'Pending', assignedTo: reviewer ?? undefined });
-    return reviewer;
-  };
-
-  const handleAddToQueue = (submissionId: string) => {
-    const reviewer = addToQueueWithAutoAssign(submissionId);
-    const name = reviewer ? tutors.find(t => t.id === reviewer)?.name : null;
-    setToast(name ? `Added to queue — auto-assigned to ${name}` : 'Added to queue (no reviewer available)');
-    refresh();
-  };
-
-  const handleSkipSingle = (submissionId: string) => {
-    skipSubmissions([submissionId]);
-    setToast('Assessment skipped');
-    refresh();
-  };
-
-  const handleAssignReviewer = (submissionId: string, tutorId: string) => {
-    const item = allItems.find(i => i.submission.id === submissionId);
-    if (!item) return;
-    if (item.check) {
-      updateIqaCheck(item.check.id, { assignedTo: tutorId || undefined });
-    } else {
-      addIqaCheck({ submissionId, assessorId: item.submission.gradedBy!, status: 'Pending', assignedTo: tutorId || undefined });
-    }
-    setToast(`Assigned to ${tutors.find(t => t.id === tutorId)?.name ?? 'any reviewer'}`);
-    setAssignModalSubmissionId(null);
-    refresh();
-  };
-
-  const handleModalBulkAssign = (submissionIds: string[], tutorId: string) => {
-    let count = 0;
-    for (const id of submissionIds) {
-      const item = allItems.find(i => i.submission.id === id);
-      if (!item?.check) continue;
-      updateIqaCheck(item.check.id, { assignedTo: tutorId });
-      count++;
-    }
-    setToast(`Assigned ${count} item${count !== 1 ? 's' : ''} to ${tutors.find(t => t.id === tutorId)?.name ?? 'reviewer'}`);
-    setShowHistoryModal(false);
-    setSelected(new Set());
-    refresh();
-  };
-
-  const handleModalSkip = (submissionId: string, checkId: string) => {
-    removeIqaCheck(checkId);
-    skipSubmissions([submissionId]);
-    setToast('Assessment removed from queue and skipped');
-    refresh();
-  };
-
-  const handleModalAssign = (checkId: string, tutorId: string) => {
-    updateIqaCheck(checkId, { assignedTo: tutorId });
-    setToast(`Assigned to ${tutors.find(t => t.id === tutorId)?.name ?? 'reviewer'}`);
-    refresh();
-  };
-
-  const handleBulkAutoAdd = () => {
-    let count = 0;
-    selected.forEach(id => {
-      if (!submissionIdsWithCheck.has(id)) { addToQueueWithAutoAssign(id); count++; }
-    });
-    setToast(`Added ${count} item${count !== 1 ? 's' : ''} to queue with auto-assignment`);
-    setSelected(new Set());
-    refresh();
-  };
-
-  const handleBulkSkip = () => {
-    const ids = [...selected];
-    skipSubmissions(ids);
-    setToast(`Skipped ${ids.length} assessment${ids.length !== 1 ? 's' : ''}`);
-    setSelected(new Set());
-    setConfirmBulkAction(null);
-    refresh();
-  };
-
-  const handleBulkAssign = () => {
-    if (!bulkAssignTutor) return;
-    let count = 0;
-    selected.forEach(id => {
-      const item = currentItems.find(i => i.submission.id === id);
-      if (!item) return;
-      if (item.check) {
-        updateIqaCheck(item.check.id, { assignedTo: bulkAssignTutor });
-      } else {
-        addIqaCheck({ submissionId: id, assessorId: item.submission.gradedBy!, status: 'Pending', assignedTo: bulkAssignTutor });
-      }
-      count++;
-    });
-    setToast(`Assigned ${count} item${count !== 1 ? 's' : ''} to ${tutors.find(t => t.id === bulkAssignTutor)?.name ?? 'reviewer'}`);
-    setSelected(new Set());
-    setShowBulkAssign(false);
-    setBulkAssignTutor('');
-    refresh();
-  };
-
-  const handleBulkUnassign = () => {
-    let count = 0;
-    selected.forEach(id => {
-      const item = currentItems.find(i => i.submission.id === id);
-      if (!item?.check?.assignedTo) return;
-      updateIqaCheck(item.check.id, { assignedTo: undefined });
-      count++;
-    });
-    setToast(`Unassigned ${count} item${count !== 1 ? 's' : ''}`);
-    setSelected(new Set());
-    setConfirmBulkAction(null);
-    refresh();
   };
 
   const handleExportCsv = () => {
@@ -400,15 +248,15 @@ export default function IqaAssignPage() {
       <div className="mb-5">
         <Link href="/iqa" className="text-sm text-gray-500 hover:text-gray-700">IQA</Link>
         <span className="text-gray-400 mx-2">/</span>
-        <span className="text-sm text-gray-900 font-medium">Assign for Recheck</span>
+        <span className="text-sm text-gray-900 font-medium">Assessment Status</span>
       </div>
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <p className="text-sm text-gray-500 mb-1">IQA</p>
-          <h1 className="text-2xl font-bold text-gray-900">Assign for Recheck</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage which assessments go into the IQA review queue.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Assessment Status</h1>
+          <p className="text-gray-500 text-sm mt-1">Overview of assessment queue assignments and IQA statuses.</p>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/iqa/categories" className="text-sm font-medium text-gray-600 border border-gray-200 px-4 py-2.5 rounded-lg hover:bg-gray-50">
@@ -419,16 +267,6 @@ export default function IqaAssignPage() {
           </Link>
         </div>
       </div>
-
-      {/* Toast */}
-      {toast && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-5 py-3 flex items-center gap-2">
-          <svg className="text-green-600 shrink-0" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          <p className="text-sm text-green-800 font-medium">{toast}</p>
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-5 w-fit">
@@ -452,8 +290,8 @@ export default function IqaAssignPage() {
 
       {/* Tab description */}
       {tab === 'all' && <p className="text-xs text-gray-500 mb-4">All graded assessments with IQA status, reviewer, and cohort information.</p>}
-      {tab === 'queue' && <p className="text-xs text-gray-500 mb-4">Pending assessments awaiting reviewer assignment. Once assigned, they move to All.</p>}
-      {tab === 'not-queue' && <p className="text-xs text-gray-500 mb-4">Graded assessments eligible for IQA — not yet queued or skipped. Select to add to queue or skip.</p>}
+      {tab === 'queue' && <p className="text-xs text-gray-500 mb-4">Assessments currently in the IQA review queue.</p>}
+      {tab === 'not-queue' && <p className="text-xs text-gray-500 mb-4">Graded assessments not yet queued for IQA review.</p>}
 
       {/* Filters */}
       <FiltersBar
@@ -490,31 +328,12 @@ export default function IqaAssignPage() {
         onExport={handleExportCsv}
       />
 
-      {/* Bulk actions */}
-      {selected.size > 0 && (
-        <BulkActionsBar
-          selectedCount={selected.size}
-          tab={tab}
-          tutors={tutors}
-          bulkAssignTutor={bulkAssignTutor}
-          showBulkAssign={showBulkAssign}
-          onBulkAssignTutorChange={setBulkAssignTutor}
-          onShowBulkAssign={setShowBulkAssign}
-          onBulkAutoAdd={handleBulkAutoAdd}
-          onRequestSkip={() => setConfirmBulkAction('skip')}
-          onRequestUnassign={() => setConfirmBulkAction('unassign')}
-          onBulkAssign={handleBulkAssign}
-          onHistoryModal={() => setShowHistoryModal(true)}
-          onClearSelection={() => setSelected(new Set())}
-        />
-      )}
-
       {/* Main table */}
       <AssignTable
         tab={tab}
         displayItems={displayItems}
-        selected={selected}
-        allSelected={allSelected}
+        selected={new Set()}
+        allSelected={false}
         sortKey={sortKey}
         sortDir={sortDir}
         allPage={allPage}
@@ -522,66 +341,23 @@ export default function IqaAssignPage() {
         filteredCount={filteredItems.length}
         hasActiveFilters={hasActiveFilters}
         tutors={tutors}
-        onToggleAll={() => {
-          if (allSelected) setSelected(new Set());
-          else setSelected(new Set(displayItems.map(i => i.submission.id)));
-        }}
-        onToggleOne={id => setSelected(prev => {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id); else next.add(id);
-          return next;
-        })}
+        readOnly
+        onToggleAll={() => {}}
+        onToggleOne={() => {}}
         onSortClick={handleSortClick}
         onPageChange={setAllPage}
         onClearFilters={clearFilters}
         onSwitchTab={setTab}
-        onAddToQueue={handleAddToQueue}
-        onSkip={handleSkipSingle}
-        onRequestAssign={setAssignModalSubmissionId}
+        onAddToQueue={() => {}}
+        onSkip={() => {}}
+        onRequestAssign={() => {}}
       />
 
       {/* Skipped counter (All tab) */}
       {tab === 'all' && skipped.size > 0 && (
         <p className="text-xs text-gray-400 mt-3">
-          {skipped.size} assessment{skipped.size !== 1 ? 's' : ''} skipped from IQA queue.{' '}
-          <button
-            onClick={() => { [...skipped].forEach(id => unskipSubmission(id)); refresh(); }}
-            className="text-orange-600 hover:text-orange-700 underline underline-offset-2"
-          >
-            Restore all
-          </button>
+          {skipped.size} assessment{skipped.size !== 1 ? 's' : ''} skipped from IQA queue.
         </p>
-      )}
-
-      {/* IQA History / Smart Selection Modal */}
-      {showHistoryModal && selectedItems.length > 0 && (
-        <IqaHistoryModal
-          items={selectedItems}
-          allChecks={checks}
-          tutors={tutors}
-          onClose={() => setShowHistoryModal(false)}
-          onSkip={handleModalSkip}
-          onBulkAssign={handleModalBulkAssign}
-        />
-      )}
-
-      {/* Single assign reviewer modal */}
-      {assignModalSubmissionId && (
-        <AssignReviewerModal
-          tutors={tutors}
-          onAssign={tutorId => handleAssignReviewer(assignModalSubmissionId, tutorId)}
-          onClose={() => setAssignModalSubmissionId(null)}
-        />
-      )}
-
-      {/* Confirm bulk action */}
-      {confirmBulkAction && (
-        <ConfirmDialog
-          action={confirmBulkAction}
-          selectedCount={selected.size}
-          onConfirm={confirmBulkAction === 'skip' ? handleBulkSkip : handleBulkUnassign}
-          onCancel={() => setConfirmBulkAction(null)}
-        />
       )}
     </div>
   );

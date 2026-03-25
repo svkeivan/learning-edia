@@ -17,6 +17,7 @@ interface Props {
   filteredCount: number;
   hasActiveFilters: boolean;
   tutors: IqaTutor[];
+  readOnly?: boolean;
   onToggleAll: () => void;
   onToggleOne: (id: string) => void;
   onSortClick: (key: SortKey) => void;
@@ -55,12 +56,13 @@ function SortableTh({ label, col, sortKey, sortDir, onSort }: {
 export function AssignTable({
   tab, displayItems, selected, allSelected,
   sortKey, sortDir, allPage, totalAllPages, filteredCount, hasActiveFilters,
-  tutors,
+  tutors, readOnly,
   onToggleAll, onToggleOne, onSortClick, onPageChange,
   onClearFilters, onSwitchTab,
   onAddToQueue, onSkip, onRequestAssign,
 }: Props) {
-  const showCheckboxes = tab !== 'all';
+  const showCheckboxes = !readOnly && tab !== 'all';
+  const showActions = !readOnly && tab !== 'all';
 
   if (displayItems.length === 0) {
     return (
@@ -117,17 +119,17 @@ export function AssignTable({
               <SortableTh label="Assessment" col="assessment" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
               <SortableTh label="Cohort" col="cohort" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
               <SortableTh label="Assessor" col="assessor" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
-              {tab !== 'all' && (
+              {(readOnly || tab !== 'all') && (
                 <th className="py-3 px-4 text-left font-medium text-gray-500">Category</th>
               )}
               <SortableTh label="Result" col="result" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
-              {tab === 'all' && (
+              {(readOnly || tab === 'all') && (
                 <>
                   <SortableTh label="Reviewer" col="reviewer" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
                   <th className="py-3 px-4 text-left font-medium text-gray-500">IQA Status</th>
                 </>
               )}
-              {tab !== 'all' && (
+              {showActions && (
                 <th className="py-3 px-4 text-right font-medium text-gray-500">Actions</th>
               )}
             </tr>
@@ -135,11 +137,13 @@ export function AssignTable({
           <tbody>
             {displayItems.map(item => {
               const { submission: sub, assessment, assessor, check, assignedReviewer, category, isSkipped, cohort } = item;
+              const rowClickable = readOnly && !!check;
 
               return (
                 <tr
                   key={sub.id}
-                  className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${selected.has(sub.id) ? 'bg-orange-50/40' : ''}`}
+                  onClick={rowClickable ? () => { window.location.href = `/iqa/review-queue/${check!.id}`; } : undefined}
+                  className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${rowClickable ? 'cursor-pointer' : ''} ${!readOnly && selected.has(sub.id) ? 'bg-orange-50/40' : ''}`}
                 >
                   {showCheckboxes && (
                     <td className="py-3 px-4">
@@ -180,8 +184,8 @@ export function AssignTable({
                   {/* Assessor */}
                   <td className="py-3 px-4 text-gray-700 text-sm">{assessor?.name ?? '—'}</td>
 
-                  {/* Category (non-All tabs) */}
-                  {tab !== 'all' && (
+                  {/* Category */}
+                  {(readOnly || tab !== 'all') && (
                     <td className="py-3 px-4">
                       {category ? (
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -204,8 +208,8 @@ export function AssignTable({
                     </span>
                   </td>
 
-                  {/* All tab: Reviewer + IQA status */}
-                  {tab === 'all' && (
+                  {/* Reviewer + IQA status */}
+                  {(readOnly || tab === 'all') && (
                     <>
                       <td className="py-3 px-4 text-sm text-gray-700">
                         {assignedReviewer ? assignedReviewer.name : <span className="text-gray-400">—</span>}
@@ -227,7 +231,7 @@ export function AssignTable({
                   )}
 
                   {/* Actions */}
-                  {tab !== 'all' && (
+                  {showActions && (
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center gap-2 justify-end">
                         {tab === 'queue' && (

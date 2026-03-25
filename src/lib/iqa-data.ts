@@ -70,6 +70,7 @@ const IQA_TUTORS_STORAGE_KEY = 'iqa-tutors-overrides';
 const IQA_ADDED_TUTORS_KEY = 'iqa-added-tutors';
 const IQA_SKIPPED_KEY = 'iqa-skipped-submissions';
 const IQA_FEEDBACK_KEY = 'iqa-feedback-records';
+const IQA_COHORT_COMPLETED_KEY = 'iqa-cohort-review-completed';
 
 // ── Base data ─────────────────────────────────────────────────────────────
 
@@ -463,6 +464,30 @@ export function markFeedbackRead(id: string): void {
 
 export function getFeedbackForAssessor(assessorId: string): IqaFeedbackRecord[] {
   return getFeedbackRecords().filter(r => r.assessorId === assessorId);
+}
+
+// ── Cohort review completion (reviewer sign-off) ───────────────────────────
+
+export function getCohortIqaCompletedAt(cohortId: string): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = sessionStorage.getItem(IQA_COHORT_COMPLETED_KEY);
+    const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+    return map[cohortId];
+  } catch {
+    return undefined;
+  }
+}
+
+export function setCohortIqaCompleted(cohortId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = sessionStorage.getItem(IQA_COHORT_COMPLETED_KEY);
+    const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+    map[cohortId] = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    sessionStorage.setItem(IQA_COHORT_COMPLETED_KEY, JSON.stringify(map));
+    window.dispatchEvent(new CustomEvent('iqa-cohort-completed-updated'));
+  } catch { /* ignore */ }
 }
 
 // ── Workload & auto-assignment ────────────────────────────────────────────

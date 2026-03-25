@@ -2,18 +2,20 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useMemo, Suspense } from 'react';
-import { getIqaChecks, getIqaTutors, getIqaCategories, removeIqaCheck, skipSubmissions } from '@/lib/iqa-data';
-import { submissions, assessments, getStudentPackage } from '@/lib/mock-data';
+import {
+  getIqaChecks,
+  getIqaTutors,
+  getCohortIqaCompletedAt,
+} from '@/lib/iqa-data';
+import { submissions, assessments, getStudentPackage, cohorts, findCohortForSubmission } from '@/lib/mock-data';
 import type { IqaCheck, IqaCheckStatus } from '@/lib/iqa-data';
 
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const ALL_PAGE_SIZE = 20;
+const REVIEWER_STORAGE_KEY = 'iqa-review-queue-reviewer-id';
 
 const tradeColors: Record<string, string> = {
   'Gas Engineering': 'bg-orange-100 text-orange-700',
-  'Electrical': 'bg-yellow-100 text-yellow-700',
-  'Plumbing': 'bg-blue-100 text-blue-700',
+  Electrical: 'bg-yellow-100 text-yellow-700',
+  Plumbing: 'bg-blue-100 text-blue-700',
 };
 
 const statusStyles: Record<IqaCheckStatus, string> = {
@@ -22,18 +24,56 @@ const statusStyles: Record<IqaCheckStatus, string> = {
   Rejected: 'bg-red-100 text-red-700',
 };
 
+function ProgressBar({ reviewed, total }: { reviewed: number; total: number }) {
+  const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${
+            percent >= 100 ? 'bg-green-500' : percent >= 50 ? 'bg-orange-500' : 'bg-blue-500'
+          }`}
+          style={{ width: `${Math.min(percent, 100)}%` }}
+        />
+      </div>
+      <span className="text-xs font-semibold text-gray-500 w-10 text-right">{percent}%</span>
+    </div>
+  );
+}
 
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-type Tab = 'pending' | 'all';
+type Tab = 'cohorts' | 'rejected';
 
 function ReviewQueueContent() {
-  const [activeTab, setActiveTab] = useState<Tab>('pending');
+  const [activeTab, setActiveTab] = useState<Tab>('cohorts');
   const [checks, setChecks] = useState<IqaCheck[]>([]);
-  const [allPage, setAllPage] = useState(1);
+  const [mounted, setMounted] = useState(false);
+  const [cohortUiBump, setCohortUiBump] = useState(0);
 
   const tutors = getIqaTutors();
-  const categories = getIqaCategories();
+  const reviewers = useMemo(() => tutors.filter(t => t.role !== 'assessor'), [tutors]);
+
+  const [reviewerId, setReviewerIdState] = useState<string>('');
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const list = getIqaTutors().filter(t => t.role !== 'assessor');
+      const saved = sessionStorage.getItem(REVIEWER_STORAGE_KEY);
+      if (saved && list.some(r => r.id === saved)) {
+        setReviewerIdState(saved);
+      } else if (list[0]) {
+        setReviewerIdState(list[0].id);
+      }
+    } catch {
+      const list = getIqaTutors().filter(t => t.role !== 'assessor');
+      if (list[0]) setReviewerIdState(list[0].id);
+    }
+  }, []);
+
+  const setReviewerId = (id: string) => {
+    setReviewerIdState(id);
+    try { sessionStorage.setItem(REVIEWER_STORAGE_KEY, id); } catch { /* ignore */ }
+  };
 
   const refresh = () => setChecks(getIqaChecks());
 
@@ -41,63 +81,129 @@ function ReviewQueueContent() {
     refresh();
     const handler = () => refresh();
     window.addEventListener('iqa-checks-updated', handler);
-    return () => window.removeEventListener('iqa-checks-updated', handler);
+    const cohortHandler = () => setCohortUiBump(b => b + 1);
+    window.addEventListener('iqa-cohort-completed-updated', cohortHandler);
+    return () => {
+      window.removeEventListener('iqa-checks-updated', handler);
+      window.removeEventListener('iqa-cohort-completed-updated', cohortHandler);
+    };
   }, []);
 
-  // Reset page when switching tabs
-  useEffect(() => { setAllPage(1); }, [activeTab]);
+  // Rejected checks scoped to this reviewer's cohorts
+  const rejectedChecks = useMemo(() => {
+    if (!reviewerId) return [];
+    return checks.filter(c => {
+      if (c.status !== 'Rejected') return false;
+      const sub = submissions.find(s => s.id === c.submissionId);
+      if (!sub) return false;
+      const coh = findCohortForSubmission(sub.email, sub.assessmentId);
+      return coh?.iqaReviewerId === reviewerId;
+    });
+  }, [checks, reviewerId]);
 
-  // Pending items (cards)
-  const pendingChecks = useMemo(() => checks.filter(c => c.status === 'Pending'), [checks]);
+  const cohortStats = useMemo(() => {
+    void cohortUiBump;
+    return cohorts
+      .filter(coh => coh.iqaReviewerId === reviewerId)
+      .map(coh => {
+        const studentEmails = new Set(coh.students.map(s => s.email));
+        const cohortSubs = submissions.filter(
+          s => studentEmails.has(s.email) && coh.examIds.includes(s.assessmentId),
+        );
+        const subIds = new Set(cohortSubs.map(s => s.id));
+        const cohortChecks = checks.filter(c => subIds.has(c.submissionId));
+        const approved = cohortChecks.filter(c => c.status === 'Approved').length;
+        const rejected = cohortChecks.filter(c => c.status === 'Rejected').length;
+        const pending = cohortChecks.filter(c => c.status === 'Pending').length;
+        const notReviewed = cohortSubs.length - cohortChecks.length;
+        const assessor = tutors.find(t => t.id === coh.assessorId);
+        const completedAt = getCohortIqaCompletedAt(coh.id);
 
-  // All tab rows (paginated)
-  const allTotal = checks.length;
-  const allPageCount = Math.max(1, Math.ceil(allTotal / ALL_PAGE_SIZE));
-  const allPageChecks = useMemo(
-    () => checks.slice((allPage - 1) * ALL_PAGE_SIZE, allPage * ALL_PAGE_SIZE),
-    [checks, allPage],
-  );
+        return {
+          cohort: coh,
+          totalSubs: cohortSubs.length,
+          approved,
+          rejected,
+          pending,
+          notReviewed,
+          reviewed: approved + rejected,
+          assessor,
+          completedAt,
+        };
+      });
+  }, [checks, tutors, reviewerId, cohortUiBump]);
 
-  // Enrich a check into display data
+  const [filterTrade, setFilterTrade] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const filteredCohortStats = useMemo(() => {
+    return cohortStats.filter(cs => {
+      if (filterTrade !== 'all' && cs.cohort.trade !== filterTrade) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const haystack = [cs.cohort.name, cs.cohort.trade, cs.assessor?.name, cs.cohort.packageName]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [cohortStats, filterTrade, search]);
+
   const enrich = (check: IqaCheck) => {
     const submission = submissions.find(s => s.id === check.submissionId);
     const assessment = submission ? assessments.find(a => a.id === submission.assessmentId) : null;
     const assessor = tutors.find(t => t.id === check.assessorId);
-    const category = assessor ? categories.find(c => c.id === assessor.categoryId) : null;
-    const assignedReviewer = check.assignedTo ? tutors.find(t => t.id === check.assignedTo) : null;
     const coursePackage = submission ? getStudentPackage(submission.email) : null;
-    return { check, submission, assessment, assessor, category, assignedReviewer, coursePackage };
+    const cohort = submission ? findCohortForSubmission(submission.email, submission.assessmentId) : null;
+    return { check, submission, assessment, assessor, coursePackage, cohort };
   };
+
+  if (!mounted || !reviewerId) {
+    return (
+      <div className="p-8 max-w-7xl mx-auto">
+        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-6" />
+        <div className="h-12 w-full bg-gray-100 rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  const selectedReviewerName = reviewers.find(r => r.id === reviewerId)?.name ?? 'Reviewer';
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      {/* ── Header ── */}
       <div className="mb-6">
         <p className="text-sm text-gray-500 mb-1">IQA</p>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">Review Queue</h1>
-          {pendingChecks.length > 0 && (
-            <span className="bg-blue-100 text-blue-700 text-sm font-semibold px-2.5 py-0.5 rounded-full">
-              {pendingChecks.length} pending
-            </span>
-          )}
-          {pendingChecks.length === 0 && checks.length > 0 && (
-            <span className="bg-green-100 text-green-700 text-sm font-semibold px-2.5 py-0.5 rounded-full">
-              All reviewed
-            </span>
-          )}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Review Queue</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Your assigned cohorts for system review. Open a cohort to manage queue and review assessments.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1 min-w-[220px]">
+            <label htmlFor="iqa-reviewer" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Reviewing as
+            </label>
+            <select
+              id="iqa-reviewer"
+              value={reviewerId}
+              onChange={e => setReviewerId(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+            >
+              {reviewers.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <p className="text-gray-500 text-sm mt-1">
-          Approve or reject assessor assessments based on grading quality
-        </p>
       </div>
 
-      {/* ── Tabs ── */}
-      <div className="flex items-center gap-1 mb-6 border-b border-gray-200">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 border-b border-gray-200 flex-wrap">
         {([
-          { key: 'pending', label: 'Pending', count: pendingChecks.length },
-          { key: 'all', label: 'All', count: allTotal },
-        ] as { key: Tab; label: string; count: number }[]).map(tab => (
+          { key: 'cohorts' as const, label: 'Cohorts', count: cohortStats.length },
+          { key: 'rejected' as const, label: 'Rejected', count: rejectedChecks.length },
+        ]).map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -117,209 +223,210 @@ function ReviewQueueContent() {
         ))}
       </div>
 
-      {/* ══ PENDING TAB — 2-column card grid ══ */}
-      {activeTab === 'pending' && (
+      {/* ── COHORTS ── */}
+      {activeTab === 'cohorts' && (
         <>
-          {pendingChecks.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
-              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <svg className="text-green-600" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
-              </div>
-              <h3 className="text-gray-900 font-semibold mb-1">All caught up</h3>
-              <p className="text-gray-500 text-sm">No assessments pending review.</p>
-              <Link
-                href="/iqa/assign"
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700"
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search cohorts..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
+              />
+            </div>
+            <select
+              value={filterTrade}
+              onChange={e => setFilterTrade(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+            >
+              <option value="all">All Trades</option>
+              {[...new Set(cohortStats.map(c => c.cohort.trade))].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {(filterTrade !== 'all' || search) && (
+              <button
+                onClick={() => { setFilterTrade('all'); setSearch(''); }}
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
               >
-                Go to Assign for Recheck
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                </svg>
-              </Link>
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          {filteredCohortStats.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
+              <h3 className="text-gray-900 font-semibold mb-1">No cohorts for this reviewer</h3>
+              <p className="text-gray-500 text-sm">
+                {cohortStats.length === 0
+                  ? `No cohorts are assigned to ${selectedReviewerName} yet.`
+                  : 'Try adjusting search or filters.'}
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {pendingChecks.map(check => {
-                const { submission, assessment, assessor, category, assignedReviewer, coursePackage } = enrich(check);
-                if (!submission || !assessment) return null;
-                const isPassing = (submission.score ?? 0) >= assessment.passMark;
-
-                return (
-                  <div
-                    key={check.id}
-                    className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-gray-300 transition-all flex flex-col gap-4"
-                  >
-                    {/* Card top */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        {/* Student + result */}
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <p className="font-semibold text-gray-900">{submission.student}</p>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isPassing ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {isPassing ? 'Pass' : 'Fail'}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Trade</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessor</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Students</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[160px]">IQA Progress</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Breakdown</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCohortStats.map(cs => (
+                      <tr
+                        key={cs.cohort.id}
+                        className="border-b border-gray-50 hover:bg-orange-50/30 transition-colors cursor-pointer"
+                        onClick={() => { window.location.href = `/iqa/review-queue/cohort/${cs.cohort.id}`; }}
+                      >
+                        <td className="py-3.5 px-5">
+                          <p className="font-medium text-gray-900">{cs.cohort.name}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{cs.cohort.packageName}</p>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tradeColors[cs.cohort.trade] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {cs.cohort.trade}
                           </span>
-                        </div>
-
-                        {/* Assessment title */}
-                        <p className="text-sm text-gray-800 font-medium mb-2">{assessment.title}</p>
-
-                        {/* Trade + module */}
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tradeColors[assessment.trade] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {assessment.trade}
-                          </span>
-                          <span className="text-xs text-gray-500">{assessment.module}</span>
-                        </div>
-
-                        {/* Course package */}
-                        {coursePackage && (
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-gray-400 shrink-0">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
-                            </svg>
-                            <span className="text-xs text-gray-500 font-medium">{coursePackage}</span>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <span className="text-sm text-gray-700">{cs.assessor?.name ?? '—'}</span>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <span className="text-sm text-gray-600">{cs.cohort.students.length}</span>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <ProgressBar reviewed={cs.reviewed} total={cs.totalSubs} />
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            {cs.reviewed} / {cs.totalSubs} reviewed
+                          </p>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {cs.approved > 0 && (
+                              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                                {cs.approved} approved
+                              </span>
+                            )}
+                            {cs.rejected > 0 && (
+                              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                                {cs.rejected} rejected
+                              </span>
+                            )}
+                            {cs.pending > 0 && (
+                              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                {cs.pending} pending
+                              </span>
+                            )}
+                            {cs.notReviewed > 0 && (
+                              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                {cs.notReviewed} not in queue
+                              </span>
+                            )}
                           </div>
-                        )}
-
-                        {/* Graded by + assigned + category */}
-                        <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
-                          <span>Graded by <strong className="text-gray-600">{assessor?.name ?? 'Unknown'}</strong></span>
-                          {assignedReviewer && (
-                            <>
-                              <span className="text-gray-200">·</span>
-                              <span className="text-blue-500 font-medium">→ {assignedReviewer.name}</span>
-                            </>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          {cs.completedAt ? (
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                              Complete
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-medium text-gray-500">In progress</span>
                           )}
-                          {category && (
-                            <>
-                              <span className="text-gray-200">·</span>
-                              <span>{category.name}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* PDF attachment hint */}
-                    {submission.answers && submission.answers.some(a => a.type === 'file') && (
-                      <div className="flex items-center gap-1.5 pt-3 border-t border-gray-100">
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-red-400 shrink-0">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 0 0 2-2V9.414a1 1 0 0 0-.293-.707l-5.414-5.414A1 1 0 0 0 12.586 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z" />
-                        </svg>
-                        <span className="text-xs text-gray-400">
-                          {submission.answers.filter(a => a.type === 'file').length} PDF document{submission.answers.filter(a => a.type === 'file').length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Action */}
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs text-gray-400">{submission.submittedAt}</span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            removeIqaCheck(check.id);
-                            skipSubmissions([submission.id]);
-                          }}
-                          className="text-sm font-medium text-gray-500 border border-gray-200 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
-                        >
-                          Skip
-                        </button>
-                        <Link
-                          href={`/iqa/review-queue/${check.id}`}
-                          className="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                        >
-                          Review
-                          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                          </svg>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-5 py-3 border-t border-gray-100">
+                <p className="text-xs text-gray-400">
+                  Open a cohort to manage the queue, review assessments, or finish the cohort.
+                </p>
+              </div>
             </div>
           )}
         </>
       )}
 
-      {/* ══ ALL TAB — paginated table ══ */}
-      {activeTab === 'all' && (
+      {/* ── REJECTED (assessments waiting for assessor follow-up) ── */}
+      {activeTab === 'rejected' && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {checks.length === 0 ? (
+          {rejectedChecks.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="text-gray-500 text-sm">No assessments in the review queue.</p>
+              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                <svg className="text-green-600" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </div>
+              <h3 className="text-gray-900 font-semibold mb-1">No rejected assessments</h3>
+              <p className="text-gray-500 text-sm">All rejected items have been resolved or there are none yet.</p>
             </div>
           ) : (
             <>
+              <div className="px-5 py-4 border-b border-gray-100 bg-red-50/40">
+                <p className="text-sm text-red-800 font-medium">
+                  These assessments have been rejected and are waiting for the assessor to re-assess. They still need action to finish the review process.
+                </p>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
                       <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Student</th>
                       <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessment</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Package</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Result</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Graded By</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">IQA Status</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Submitted</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Outcome</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Last feedback</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Reviewed</th>
+                      <th className="py-3 px-5 text-right font-semibold text-xs text-gray-500 uppercase tracking-wide">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {allPageChecks.map(check => {
-                      const { submission, assessment, assessor, coursePackage } = enrich(check);
+                    {rejectedChecks.map(check => {
+                      const { submission, assessment, coursePackage, cohort: coh } = enrich(check);
                       if (!submission || !assessment) return null;
-                      const isPassing = (submission.score ?? 0) >= assessment.passMark;
-
                       return (
-                        <tr key={check.id} className="border-b border-gray-50 hover:bg-orange-50/30 transition-colors cursor-pointer" onClick={() => { window.location.href = `/iqa/review-queue/${check.id}`; }}>
-                          {/* Student */}
+                        <tr key={check.id} className="border-b border-gray-50 hover:bg-orange-50/30 transition-colors">
                           <td className="py-3.5 px-5">
                             <p className="font-medium text-gray-900">{submission.student}</p>
                             <p className="text-xs text-gray-400 mt-0.5">{submission.email}</p>
                           </td>
-
-                          {/* Assessment */}
                           <td className="py-3.5 px-5">
                             <p className="font-medium text-gray-900">{assessment.title}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tradeColors[assessment.trade] ?? 'bg-gray-100 text-gray-600'}`}>
-                                {assessment.trade}
-                              </span>
-                              <span className="text-xs text-gray-400">{assessment.module}</span>
-                            </div>
-                          </td>
-
-                          {/* Package */}
-                          <td className="py-3.5 px-5">
-                            <span className="text-sm text-gray-600">{coursePackage ?? '—'}</span>
-                          </td>
-
-                          {/* Result */}
-                          <td className="py-3.5 px-5">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isPassing ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {isPassing ? 'Pass' : 'Fail'}
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tradeColors[assessment.trade] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {assessment.trade}
                             </span>
                           </td>
-
-                          {/* Graded By */}
                           <td className="py-3.5 px-5">
-                            <span className="text-sm text-gray-600">{assessor?.name ?? '—'}</span>
+                            <span className="text-sm text-gray-600">{coh?.name ?? '—'}</span>
                           </td>
-
-                          {/* IQA Status */}
                           <td className="py-3.5 px-5">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyles[check.status]}`}>
-                              {check.status}
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyles.Rejected}`}>
+                              {check.outcomeType === 'recheck-assessor' ? 'Recheck Assessor' : check.outcomeType === 'return-module' ? 'Return Module' : 'Rejected'}
                             </span>
                           </td>
-
-                          {/* Submitted */}
+                          <td className="py-3.5 px-5 max-w-xs">
+                            <p className="text-sm text-gray-700 line-clamp-2">{check.feedback ?? '—'}</p>
+                          </td>
                           <td className="py-3.5 px-5">
-                            <span className="text-sm text-gray-500">{submission.submittedAt}</span>
+                            <span className="text-sm text-gray-500">{check.reviewedAt ?? '—'}</span>
+                          </td>
+                          <td className="py-3.5 px-5 text-right">
+                            <Link
+                              href={`/iqa/review-queue/${check.id}`}
+                              className="inline-flex text-sm font-semibold text-orange-600 hover:text-orange-700"
+                            >
+                              Open review
+                            </Link>
                           </td>
                         </tr>
                       );
@@ -327,54 +434,6 @@ function ReviewQueueContent() {
                   </tbody>
                 </table>
               </div>
-
-              {/* Pagination */}
-              {allPageCount > 1 && (
-                <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-                  <p className="text-xs text-gray-500">
-                    Showing {(allPage - 1) * ALL_PAGE_SIZE + 1}–{Math.min(allPage * ALL_PAGE_SIZE, allTotal)} of {allTotal}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setAllPage(p => Math.max(1, p - 1))}
-                      disabled={allPage === 1}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                      </svg>
-                    </button>
-                    {Array.from({ length: allPageCount }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => setAllPage(page)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                          page === allPage
-                            ? 'bg-orange-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => setAllPage(p => Math.min(allPageCount, p + 1))}
-                      disabled={allPage === allPageCount}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {allPageCount <= 1 && (
-                <div className="px-5 py-3 border-t border-gray-100">
-                  <p className="text-xs text-gray-400">Showing all {allTotal} assessment{allTotal !== 1 ? 's' : ''}</p>
-                </div>
-              )}
             </>
           )}
         </div>
