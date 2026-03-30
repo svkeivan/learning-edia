@@ -309,7 +309,7 @@ export default function IqaReviewDetailPage() {
             </div>
 
             {/* Info grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 mt-5 pt-4 border-t border-gray-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 mt-5 pt-4 border-t border-gray-100">
               <div>
                 <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Student</p>
                 <p className="text-sm font-semibold text-gray-900">{submission.student}</p>
@@ -336,19 +336,7 @@ export default function IqaReviewDetailPage() {
                 <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Exam date</p>
                 <p className="text-sm font-medium text-gray-700">{examDate ?? '—'}</p>
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Review round</p>
-                <div className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${
-                    currentVersion === 1 ? 'bg-gray-400' : 'bg-orange-500'
-                  }`}>
-                    {currentVersion}
-                  </span>
-                  {reviewHistory.length > 0 && (
-                    <span className="text-xs text-gray-500">{reviewHistory.length} prior</span>
-                  )}
-                </div>
-              </div>
+             
             </div>
           </div>
         </div>

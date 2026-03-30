@@ -231,6 +231,7 @@ const sections: NavSection[] = [
       // { name: 'Assessments', href: '/assessment-center/assessments' },
       // { name: 'Grading Queue', href: '/assessment-center/grading', badge: 17 },
       // { name: 'RPL Requests', href: '/assessment-center/rpl-requests', badge: 3 },
+      { name: "Assessor Queue", href: "/assessment-center/assessor-queue" },
       { name: "Attendance", href: "/assessment-center/attendance" },
       // { name: 'Reports', href: '/assessment-center/reports' },
     ],
@@ -240,7 +241,6 @@ const sections: NavSection[] = [
     icon: <IconIqa />,
     children: [
       { name: "Review Queue", href: "/iqa/review-queue" },
-      { name: "Assessor Queue", href: "/iqa/assessor-queue" },
       { name: "Cohort View", href: "/iqa/sampling" },
       { name: "Assessment Status", href: "/iqa/assign" },
       { name: "People & Roles", href: "/iqa/people" },

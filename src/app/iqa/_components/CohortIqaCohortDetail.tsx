@@ -387,12 +387,12 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
             <div>
               <h4 className="text-sm font-semibold text-blue-900 mb-1.5">How is the IQA queue selected?</h4>
               <ul className="text-sm text-blue-800 space-y-1.5">
-                <li className="flex items-start gap-2">
+                {/* <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   <span>
                     <strong>Pre-IQA check:</strong> The system reviews the assessor&apos;s prior IQA history to determine their risk profile and track record.
                   </span>
-                </li>
+                </li> */}
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   <span>
@@ -407,6 +407,12 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   <span>
                     <strong>Minimum coverage:</strong> Every cohort must have at least 1 student&apos;s exam selected for IQA review, regardless of the percentage threshold.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <span>
+                    <strong>Minimum coverage:</strong> Every cohort must have at least 1 student&apos;s assessment selected for IQA review, regardless of the percentage threshold.
                   </span>
                 </li>
               </ul>
@@ -513,7 +519,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessment</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Result</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Submitted</th>
-                  <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Exam date</th>
+                  <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Date</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">IQA Status</th>
                   {isReviewer && (
                     <th className="py-3 px-4 text-right font-semibold text-xs text-gray-500 uppercase tracking-wide">Actions</th>
@@ -583,22 +589,13 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center gap-2 justify-end flex-wrap">
                             {!check && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleAddToQueue(sub.id); }}
-                                  className="text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-                                >
-                                  Add to Queue
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleReviewFromNotInQueue(sub.id); }}
-                                  className="text-xs font-medium bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg transition-colors"
-                                >
-                                  Review
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleReviewFromNotInQueue(sub.id); }}
+                                className="text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                              >
+                                Review
+                              </button>
                             )}
                             {check && check.status === 'Pending' && (
                               <Link

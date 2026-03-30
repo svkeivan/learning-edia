@@ -123,6 +123,7 @@ export function AssignTable({
                 <th className="py-3 px-4 text-left font-medium text-gray-500">Category</th>
               )}
               <SortableTh label="Result" col="result" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
+              <th className="py-3 px-4 text-left font-medium text-gray-500">Submitted</th>
               {(readOnly || tab === 'all') && (
                 <>
                   <SortableTh label="Reviewer" col="reviewer" sortKey={sortKey} sortDir={sortDir} onSort={onSortClick} />
@@ -206,6 +207,11 @@ export function AssignTable({
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${sub.status === 'Pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {sub.status === 'Pass' ? 'Pass' : 'Fail'}
                     </span>
+                  </td>
+
+                  {/* Submitted */}
+                  <td className="py-3 px-4">
+                    <span className="text-sm text-gray-500">{sub.submittedAt}</span>
                   </td>
 
                   {/* Reviewer + IQA status */}
