@@ -155,21 +155,7 @@ function ReviewQueueContent() {
               Your assigned cohorts for system review. Open a cohort to manage queue and review assessments.
             </p>
           </div>
-          <div className="flex flex-col gap-1 min-w-[220px]">
-            <label htmlFor="iqa-reviewer" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              Reviewing as
-            </label>
-            <select
-              id="iqa-reviewer"
-              value={reviewerId}
-              onChange={e => setReviewerId(e.target.value)}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
-            >
-              {reviewers.map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </div>
+          
         </div>
       </div>
 
