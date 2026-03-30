@@ -232,6 +232,7 @@ export interface Cohort {
   examDates: string[];
   packageName: string;
   students: { name: string; email: string }[];
+  iqaSentDate?: string;
 }
 
 export const cohorts: Cohort[] = [
@@ -261,6 +262,7 @@ export const cohorts: Cohort[] = [
       { name: 'Connor Walsh', email: 'c.walsh@email.com' },
       { name: 'Megan Lloyd', email: 'm.lloyd@email.com' },
     ],
+    iqaSentDate: '15 Feb 2026',
   },
   {
     id: 'coh2',
@@ -291,6 +293,7 @@ export const cohorts: Cohort[] = [
       { name: 'Oliver Brooks', email: 'o.brooks@email.com' },
       { name: 'Ella Sharma', email: 'e.sharma@email.com' },
     ],
+    iqaSentDate: '8 Feb 2026',
   },
   {
     id: 'coh3',
@@ -319,6 +322,7 @@ export const cohorts: Cohort[] = [
       { name: 'Hannah McKenzie', email: 'h.mckenzie@email.com' },
       { name: 'Toby Fletcher', email: 't.fletcher@email.com' },
     ],
+    iqaSentDate: '22 Feb 2026',
   },
   {
     id: 'coh4',
@@ -350,6 +354,30 @@ export const cohorts: Cohort[] = [
       { name: 'Sam Al-Rashid', email: 's.alrashid@email.com' },
       { name: 'Tara Connolly', email: 't.connolly@email.com' },
       { name: 'Will Henderson', email: 'w.henderson@email.com' },
+    ],
+    iqaSentDate: '2 Mar 2026',
+  },
+  {
+    id: 'coh5',
+    name: 'Bristol-Lab3-23Mar26',
+    trade: 'Gas Engineering',
+    assessorId: 't6',
+    iqaReviewerId: 't2',
+    examIds: ['a1', 'a4'],
+    examDates: ['23 Mar 2026', '25 Mar 2026'],
+    packageName: 'Gas Safety Foundation',
+    iqaSentDate: '27 Mar 2026',
+    students: [
+      { name: 'Alex Murray', email: 'a.murray@email.com' },
+      { name: 'Beth Sinclair', email: 'b.sinclair@email.com' },
+      { name: 'Chris Doyle', email: 'c.doyle2@email.com' },
+      { name: 'Diana Frost', email: 'd.frost@email.com' },
+      { name: 'Ethan Graves', email: 'e.graves@email.com' },
+      { name: 'Fiona Hart', email: 'f.hart@email.com' },
+      { name: 'Gary Neville', email: 'g.neville@email.com' },
+      { name: 'Holly Spencer', email: 'h.spencer@email.com' },
+      { name: 'Ian Wallace', email: 'i.wallace@email.com' },
+      { name: 'Jenny Marsh', email: 'j.marsh@email.com' },
     ],
   },
 ];
@@ -399,6 +427,85 @@ function generateSubmissions(): StudentSubmission[] {
 }
 
 export const submissions: StudentSubmission[] = generateSubmissions();
+
+/** Alternate graded attempts for the same student + assessment (IQA “select version”). */
+const submissionVersionGroupIds: Record<string, string[]> = (() => {
+  const s3 = submissions.find(s => s.id === 's3');
+  if (s3 && !submissions.some(s => s.id === 's3-v2')) {
+    submissions.push({
+      ...s3,
+      id: 's3-v2',
+      attemptNumber: 2,
+      submittedAt: '8 Feb 2026, 11:05',
+      score: Math.min(100, (s3.score ?? 0) + 3),
+      status: s3.status,
+    });
+  }
+
+  const s46 = submissions.find(s => s.id === 's46');
+  if (s46 && !submissions.some(s => s.id === 's46-v2')) {
+    submissions.push({
+      ...s46,
+      id: 's46-v2',
+      attemptNumber: 2,
+      submittedAt: '2 Feb 2026, 14:20',
+      score: Math.max(0, (s46.score ?? 0) - 5),
+      status: 'Fail' as SubmissionStatus,
+    });
+  }
+
+  const s100 = submissions.find(s => s.id === 's100');
+  if (s100 && !submissions.some(s => s.id === 's100-v2')) {
+    submissions.push({
+      ...s100,
+      id: 's100-v2',
+      attemptNumber: 2,
+      submittedAt: '16 Feb 2026, 10:30',
+      score: Math.min(100, (s100.score ?? 0) + 5),
+      status: s100.status,
+    });
+  }
+
+  const s148 = submissions.find(s => s.id === 's148');
+  if (s148 && !submissions.some(s => s.id === 's148-v2')) {
+    submissions.push({
+      ...s148,
+      id: 's148-v2',
+      attemptNumber: 2,
+      submittedAt: '24 Feb 2026, 13:00',
+      score: Math.min(100, (s148.score ?? 0) + 2),
+      status: s148.status,
+    });
+  }
+
+  return {
+    s3: ['s3', 's3-v2'],
+    s46: ['s46', 's46-v2'],
+    s100: ['s100', 's100-v2'],
+    s148: ['s148', 's148-v2'],
+  };
+})();
+
+export function getExamDateForSubmission(email: string, assessmentId: string): string | undefined {
+  const coh = findCohortForSubmission(email, assessmentId);
+  if (!coh) return undefined;
+  const idx = coh.examIds.indexOf(assessmentId);
+  if (idx < 0) return undefined;
+  return coh.examDates[idx];
+}
+
+/** Returns version options when this submission is part of a multi-attempt group (else empty). */
+export function getSubmissionVersionOptions(submissionId: string): { id: string; label: string }[] {
+  for (const ids of Object.values(submissionVersionGroupIds)) {
+    if (ids.includes(submissionId)) {
+      return ids.map((id, i) => ({
+        id,
+        label: i === ids.length - 1 ? `Attempt ${i + 1} (latest)` : `Attempt ${i + 1}`,
+      }));
+    }
+  }
+  return [];
+}
 
 // ─── STUDENT ENROLLMENTS ─────────────────────────────────────────────────────
 

@@ -7,6 +7,7 @@ import {
   getIqaTutors,
   getIqaCategories,
   getSkippedSubmissionIds,
+  getCohortIqaReviewerOverride,
 } from '@/lib/iqa-data';
 import { submissions, assessments, getStudentPackage, getStudentCohort, findCohortForSubmission, parseSubmitDate } from '@/lib/mock-data';
 
@@ -24,6 +25,7 @@ export default function IqaAssignPage() {
   const [categories, setCategories] = useState<IqaCategory[]>([]);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [mounted, setMounted] = useState(false);
+  const [cohortReviewerBump, setCohortReviewerBump] = useState(0);
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [tab, setTab] = useState<Tab>('all');
@@ -60,10 +62,13 @@ export default function IqaAssignPage() {
     window.addEventListener('iqa-checks-updated', handler);
     window.addEventListener('iqa-tutors-updated', handler);
     window.addEventListener('iqa-categories-updated', handler);
+    const onCohortReviewer = () => setCohortReviewerBump(b => b + 1);
+    window.addEventListener('iqa-cohort-reviewer-override-updated', onCohortReviewer);
     return () => {
       window.removeEventListener('iqa-checks-updated', handler);
       window.removeEventListener('iqa-tutors-updated', handler);
       window.removeEventListener('iqa-categories-updated', handler);
+      window.removeEventListener('iqa-cohort-reviewer-override-updated', onCohortReviewer);
     };
   }, [refresh]);
 
@@ -79,9 +84,8 @@ export default function IqaAssignPage() {
       const assessor = tutors.find(t => t.id === sub.gradedBy);
       const check = checks.find(c => c.submissionId === sub.id);
       const cohortObj = findCohortForSubmission(sub.email, sub.assessmentId);
-      const assignedReviewer = cohortObj?.iqaReviewerId
-        ? tutors.find(t => t.id === cohortObj.iqaReviewerId)
-        : undefined;
+      const leadId = cohortObj ? (getCohortIqaReviewerOverride(cohortObj.id) ?? cohortObj.iqaReviewerId) : undefined;
+      const assignedReviewer = leadId ? tutors.find(t => t.id === leadId) : undefined;
       const category = assessor ? categories.find(c => c.id === assessor.categoryId) : undefined;
       const isSkipped = skipped.has(sub.id);
       const cohort = cohortObj?.name ?? getStudentCohort(sub.email);
@@ -90,7 +94,7 @@ export default function IqaAssignPage() {
     [checks, tutors, categories, skipped],
   );
 
-  const allItems = useMemo(() => gradedSubmissions.map(enrich), [gradedSubmissions, enrich]);
+  const allItems = useMemo(() => gradedSubmissions.map(enrich), [gradedSubmissions, enrich, cohortReviewerBump]);
 
   const submissionIdsWithCheck = useMemo(
     () => new Set(checks.map(c => c.submissionId)),

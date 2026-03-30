@@ -6,13 +6,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   getIqaChecks,
   getIqaTutors,
+  getIqaCategories,
   addIqaCheck,
-  removeIqaCheck,
+  updateIqaCheck,
   autoAssignReviewer,
   getCohortIqaCompletedAt,
   setCohortIqaCompleted,
+  getCohortIqaReviewerOverride,
 } from '@/lib/iqa-data';
-import { cohorts, submissions, assessments } from '@/lib/mock-data';
+import { cohorts, submissions, assessments, getSubmissionVersionOptions } from '@/lib/mock-data';
 import type { IqaCheck, IqaTutor, IqaCheckStatus } from '@/lib/iqa-data';
 
 const tradeColors: Record<string, string> = {
@@ -25,6 +27,7 @@ const statusStyles: Record<IqaCheckStatus, string> = {
   Pending: 'bg-blue-100 text-blue-700',
   Approved: 'bg-green-100 text-green-700',
   Rejected: 'bg-red-100 text-red-700',
+  Skipped: 'bg-gray-200 text-gray-700',
 };
 
 interface CohortSubmission {
@@ -62,7 +65,7 @@ function ProgressRing({ percent }: { percent: number }) {
   );
 }
 
-export type CohortIqaCohortDetailVariant = 'sampling' | 'review-queue';
+export type CohortIqaCohortDetailVariant = 'sampling' | 'review-queue' | 'assessor-queue';
 
 type CohortTab = 'in-queue' | 'not-in-queue';
 
@@ -76,6 +79,9 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   const [toast, setToast] = useState('');
 
   const isReviewer = variant === 'review-queue';
+  const readOnlyCohort = variant === 'sampling' || variant === 'assessor-queue';
+  const listPath = variant === 'assessor-queue' ? '/iqa/assessor-queue' : variant === 'sampling' ? '/iqa/sampling' : '/iqa/review-queue';
+  const listLabel = variant === 'assessor-queue' ? 'Assessor Queue' : variant === 'sampling' ? 'Cohort View' : 'Review Queue';
 
   // Sampling uses a dropdown filter; review-queue uses tabs
   const [filterExam, setFilterExam] = useState('all');
@@ -97,11 +103,14 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
     window.addEventListener('iqa-checks-updated', refresh);
     window.addEventListener('iqa-tutors-updated', refresh);
     const onCohortDone = () => setCohortCompleteBump(b => b + 1);
+    const onReviewerOverride = () => setCohortCompleteBump(b => b + 1);
     window.addEventListener('iqa-cohort-completed-updated', onCohortDone);
+    window.addEventListener('iqa-cohort-reviewer-override-updated', onReviewerOverride);
     return () => {
       window.removeEventListener('iqa-checks-updated', refresh);
       window.removeEventListener('iqa-tutors-updated', refresh);
       window.removeEventListener('iqa-cohort-completed-updated', onCohortDone);
+      window.removeEventListener('iqa-cohort-reviewer-override-updated', onReviewerOverride);
     };
   }, [refresh]);
 
@@ -133,11 +142,12 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
     const approved = items.filter(i => i.check?.status === 'Approved').length;
     const rejected = items.filter(i => i.check?.status === 'Rejected').length;
     const pending = items.filter(i => i.check?.status === 'Pending').length;
-    const notInQueue = total - approved - rejected - pending;
-    const inQueue = approved + rejected + pending;
+    const skipped = items.filter(i => i.check?.status === 'Skipped').length;
+    const notInQueue = items.filter(i => !i.check).length;
+    const inQueue = total - notInQueue;
     const reviewed = approved + rejected;
     const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0;
-    return { total, approved, rejected, pending, notInQueue, inQueue, reviewed, percent };
+    return { total, approved, rejected, pending, skipped, notInQueue, inQueue, reviewed, percent };
   }, [items]);
 
   // Items split by queue membership (for reviewer tabs)
@@ -154,7 +164,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
     }
     return base.filter(i => {
       if (filterExam !== 'all' && i.submission.assessmentId !== filterExam) return false;
-      if (!isReviewer && filterStatus !== 'all') {
+      if (readOnlyCohort && filterStatus !== 'all') {
         const st = i.check?.status ?? 'Not in Queue';
         if (filterStatus !== st) return false;
       }
@@ -164,31 +174,38 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
       }
       return true;
     });
-  }, [items, inQueueItems, notInQueueItems, isReviewer, cohortTab, filterExam, filterStatus, search]);
+  }, [items, inQueueItems, notInQueueItems, isReviewer, readOnlyCohort, cohortTab, filterExam, filterStatus, search]);
 
   const displayItems = filteredItems;
 
   // ── Handlers ──
+
+  const effectiveLeadReviewerId = cohort
+    ? (getCohortIqaReviewerOverride(cohort.id) ?? cohort.iqaReviewerId)
+    : undefined;
 
   const handleAddToQueue = (submissionId: string) => {
     const sub = submissions.find(s => s.id === submissionId);
     if (!sub?.gradedBy) return;
     const existingCheck = checks.find(c => c.submissionId === submissionId);
     if (!existingCheck) {
-      const reviewer = cohort?.iqaReviewerId ?? (autoAssignReviewer(sub.gradedBy, tutors.find(t => t.id === sub.gradedBy)?.categoryId) ?? undefined);
+      const reviewer = effectiveLeadReviewerId ?? (autoAssignReviewer(sub.gradedBy, tutors.find(t => t.id === sub.gradedBy)?.categoryId) ?? undefined);
       addIqaCheck({ submissionId, assessorId: sub.gradedBy, status: 'Pending', assignedTo: reviewer });
     }
     refresh();
     setToast('Added to IQA queue');
   };
 
-  const handleSkipFromQueue = (submissionId: string) => {
-    const check = checks.find(c => c.submissionId === submissionId);
-    if (check) {
-      removeIqaCheck(check.id);
-      refresh();
-      setToast('Skipped — moved out of queue');
+  const handleReviewFromNotInQueue = (submissionId: string) => {
+    const sub = submissions.find(s => s.id === submissionId);
+    if (!sub?.gradedBy) return;
+    const existing = checks.find(c => c.submissionId === submissionId);
+    let checkId = existing?.id;
+    if (!existing) {
+      const reviewer = effectiveLeadReviewerId ?? (autoAssignReviewer(sub.gradedBy, tutors.find(t => t.id === sub.gradedBy)?.categoryId) ?? undefined);
+      checkId = addIqaCheck({ submissionId, assessorId: sub.gradedBy, status: 'Pending', assignedTo: reviewer });
     }
+    if (checkId) window.location.href = `/iqa/review-queue/${checkId}`;
   };
 
   // ── Loading / Not found ──
@@ -209,13 +226,13 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
           <h3 className="text-gray-900 font-semibold mb-1">Cohort not found</h3>
           <p className="text-gray-500 text-sm mb-4">The cohort you&apos;re looking for doesn&apos;t exist.</p>
           <Link
-            href={isReviewer ? '/iqa/review-queue' : '/iqa/sampling'}
+            href={listPath}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700"
           >
             <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
-            {isReviewer ? 'Back to Review Queue' : 'Back to Sampling'}
+            Back to {listLabel}
           </Link>
         </div>
       </div>
@@ -223,6 +240,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   }
 
   const assessorTutor = tutors.find(t => t.id === cohort.assessorId);
+  const assessorCategory = assessorTutor ? getIqaCategories().find(c => c.id === assessorTutor.categoryId) : undefined;
   const cohortExams = cohort.examIds.map(id => assessments.find(a => a.id === id)).filter(Boolean);
 
   return (
@@ -232,17 +250,8 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
         <p className="text-sm text-gray-500 mb-1">
           <Link href="/iqa/review-queue" className="hover:text-orange-600 transition-colors">IQA</Link>
           {' / '}
-          {isReviewer ? (
-            <>
-              <Link href="/iqa/review-queue" className="hover:text-orange-600 transition-colors">Review Queue</Link>
-              {' / '}
-            </>
-          ) : (
-            <>
-              <Link href="/iqa/sampling" className="hover:text-orange-600 transition-colors">Sampling</Link>
-              {' / '}
-            </>
-          )}
+          <Link href={listPath} className="hover:text-orange-600 transition-colors">{listLabel}</Link>
+          {' / '}
           <span className="text-gray-900 font-medium">{cohort.name}</span>
         </p>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -298,11 +307,11 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Assessor</p>
               <p className="text-sm text-gray-900 font-medium mt-0.5">{assessorTutor?.name ?? '—'}</p>
             </div>
-            {cohort.iqaReviewerId && (
+            {effectiveLeadReviewerId && (
               <div>
                 <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Lead IQA reviewer</p>
                 <p className="text-sm text-gray-900 font-medium mt-0.5">
-                  {tutors.find(t => t.id === cohort.iqaReviewerId)?.name ?? '—'}
+                  {tutors.find(t => t.id === effectiveLeadReviewerId)?.name ?? '—'}
                 </p>
               </div>
             )}
@@ -310,6 +319,12 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Students</p>
               <p className="text-sm text-gray-900 font-medium mt-0.5">{cohort.students.length}</p>
             </div>
+            {cohort.iqaSentDate && (
+              <div>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Sent for IQA</p>
+                <p className="text-sm text-gray-900 font-medium mt-0.5">{cohort.iqaSentDate}</p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Exams</p>
               <div className="space-y-1 mt-1">
@@ -332,6 +347,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
               { label: 'Approved', value: stats.approved, color: 'bg-green-100 text-green-700' },
               { label: 'Rejected', value: stats.rejected, color: 'bg-red-100 text-red-700' },
               { label: 'Pending', value: stats.pending, color: 'bg-blue-100 text-blue-700' },
+              { label: 'Skipped', value: stats.skipped, color: 'bg-gray-200 text-gray-600' },
               { label: 'Not in Queue', value: stats.notInQueue, color: 'bg-gray-100 text-gray-500' },
             ].map(row => (
               <div key={row.label} className="flex items-center justify-between">
@@ -360,6 +376,44 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
           </p>
         </div>
       </div>
+
+      {/* Queue selection info */}
+      {(variant === 'sampling' || variant === 'assessor-queue') && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 mb-6">
+          <div className="flex gap-3">
+            <svg className="text-blue-500 shrink-0 mt-0.5" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+            </svg>
+            <div>
+              <h4 className="text-sm font-semibold text-blue-900 mb-1.5">How is the IQA queue selected?</h4>
+              <ul className="text-sm text-blue-800 space-y-1.5">
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <span>
+                    <strong>Pre-IQA check:</strong> The system reviews the assessor&apos;s prior IQA history to determine their risk profile and track record.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <span>
+                    <strong>Minimum review %:</strong> Based on the assessor&apos;s risk category
+                    {assessorCategory && (
+                      <span className="font-medium"> ({assessorCategory.name} — {assessorCategory.recheckPercent}%)</span>
+                    )}
+                    , a minimum percentage of submissions must be reviewed by IQA.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                  <span>
+                    <strong>Minimum coverage:</strong> Every cohort must have at least 1 student&apos;s exam selected for IQA review, regardless of the percentage threshold.
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Reviewer: In Queue / Not in Queue tabs ── */}
       {isReviewer && (
@@ -412,8 +466,8 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
           {cohortExams.map(ex => <option key={ex!.id} value={ex!.id}>{ex!.title}</option>)}
         </select>
 
-        {/* Sampling-only status filter */}
-        {!isReviewer && (
+        {/* Read-only cohort status filter */}
+        {readOnlyCohort && (
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
@@ -423,11 +477,12 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
             <option value="Pending">Pending</option>
+            <option value="Skipped">Skipped</option>
             <option value="Not in Queue">Not in Queue</option>
           </select>
         )}
 
-        {(filterExam !== 'all' || (!isReviewer && filterStatus !== 'all') || search) && (
+        {(filterExam !== 'all' || (readOnlyCohort && filterStatus !== 'all') || search) && (
           <button
             onClick={() => { setFilterExam('all'); setFilterStatus('all'); setSearch(''); }}
             className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
@@ -458,6 +513,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessment</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Result</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Submitted</th>
+                  <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Exam date</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">IQA Status</th>
                   {isReviewer && (
                     <th className="py-3 px-4 text-right font-semibold text-xs text-gray-500 uppercase tracking-wide">Actions</th>
@@ -466,8 +522,10 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
               </thead>
               <tbody>
                 {displayItems.map(item => {
-                  const { submission: sub, assessment, check, assignedReviewer } = item;
+                  const { submission: sub, assessment, check } = item;
                   const isPassing = sub.status === 'Pass';
+                  const examIdx = cohort.examIds.indexOf(sub.assessmentId);
+                  const examDate = examIdx >= 0 ? cohort.examDates[examIdx] : '—';
 
                   const rowClickable = !!check;
 
@@ -484,7 +542,14 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                       </td>
 
                       <td className="py-3 px-4">
-                        <p className="font-medium text-gray-900">{assessment?.title ?? '—'}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-gray-900">{assessment?.title ?? '—'}</p>
+                          {getSubmissionVersionOptions(sub.id).length > 1 && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 shrink-0">
+                              {getSubmissionVersionOptions(sub.id).length} versions
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-400">{assessment?.module}</p>
                       </td>
 
@@ -496,6 +561,10 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
 
                       <td className="py-3 px-4">
                         <span className="text-sm text-gray-500">{sub.submittedAt}</span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-gray-600">{examDate}</span>
                       </td>
 
                       <td className="py-3 px-4">
@@ -512,31 +581,33 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
 
                       {isReviewer && (
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center gap-2 justify-end">
+                          <div className="flex items-center gap-2 justify-end flex-wrap">
                             {!check && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleAddToQueue(sub.id); }}
-                                className="text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-                              >
-                                Add to Queue
-                              </button>
-                            )}
-                            {check && check.status === 'Pending' && (
                               <>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleSkipFromQueue(sub.id); }}
-                                  className="text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                  Skip
-                                </button>
-                                <Link
-                                  href={`/iqa/review-queue/${check.id}`}
-                                  onClick={(e) => e.stopPropagation()}
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleAddToQueue(sub.id); }}
                                   className="text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
                                 >
+                                  Add to Queue
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleReviewFromNotInQueue(sub.id); }}
+                                  className="text-xs font-medium bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg transition-colors"
+                                >
                                   Review
-                                </Link>
+                                </button>
                               </>
+                            )}
+                            {check && check.status === 'Pending' && (
+                              <Link
+                                href={`/iqa/review-queue/${check.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                              >
+                                Review
+                              </Link>
                             )}
                           </div>
                         </td>
@@ -591,7 +662,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                         {stats.pending} assessment{stats.pending !== 1 ? 's' : ''} in queue not yet reviewed
                       </p>
                       <p className="text-sm text-red-700 mt-0.5">
-                        These pending assessments will be moved back to &ldquo;Not in Queue&rdquo; when you finish.
+                        These pending assessments will be marked as &ldquo;Skipped&rdquo; when you finish.
                       </p>
                     </div>
                   </div>
@@ -599,7 +670,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
               )}
 
               <div className="text-sm text-gray-600 space-y-1">
-                <p><strong>{stats.approved}</strong> approved &middot; <strong>{stats.rejected}</strong> rejected &middot; <strong>{stats.pending}</strong> pending &middot; <strong>{stats.notInQueue}</strong> not in queue</p>
+                <p><strong>{stats.approved}</strong> approved &middot; <strong>{stats.rejected}</strong> rejected &middot; <strong>{stats.pending}</strong> pending &middot; <strong>{stats.skipped}</strong> skipped &middot; <strong>{stats.notInQueue}</strong> not in queue</p>
               </div>
             </div>
 
@@ -612,9 +683,15 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
               </button>
               <button
                 onClick={() => {
+                  const finishTs = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
                   items.forEach(item => {
-                    if (item.check && item.check.status === 'Pending') {
-                      removeIqaCheck(item.check.id);
+                    if (item.check?.status === 'Pending') {
+                      updateIqaCheck(item.check.id, {
+                        status: 'Skipped',
+                        reviewedAt: finishTs,
+                        reviewerName: 'Cohort review',
+                        feedback: 'Marked skipped when cohort review was completed.',
+                      });
                     }
                   });
                   setCohortIqaCompleted(cohort.id);

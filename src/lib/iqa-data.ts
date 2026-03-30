@@ -1,4 +1,4 @@
-export type IqaCheckStatus = 'Pending' | 'Approved' | 'Rejected';
+export type IqaCheckStatus = 'Pending' | 'Approved' | 'Rejected' | 'Skipped';
 export type IqaRiskLevel = 'Low' | 'Medium' | 'High';
 export type IqaTutorRole = 'assessor' | 'reviewer' | 'both';
 
@@ -71,6 +71,7 @@ const IQA_ADDED_TUTORS_KEY = 'iqa-added-tutors';
 const IQA_SKIPPED_KEY = 'iqa-skipped-submissions';
 const IQA_FEEDBACK_KEY = 'iqa-feedback-records';
 const IQA_COHORT_COMPLETED_KEY = 'iqa-cohort-review-completed';
+const IQA_COHORT_REVIEWER_OVERRIDE_KEY = 'iqa-cohort-reviewer-overrides';
 
 // ── Base data ─────────────────────────────────────────────────────────────
 
@@ -487,6 +488,30 @@ export function setCohortIqaCompleted(cohortId: string) {
     map[cohortId] = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
     sessionStorage.setItem(IQA_COHORT_COMPLETED_KEY, JSON.stringify(map));
     window.dispatchEvent(new CustomEvent('iqa-cohort-completed-updated'));
+  } catch { /* ignore */ }
+}
+
+/** Admin override for cohort lead IQA reviewer (mock); merged with static cohort.iqaReviewerId in UI. */
+export function getCohortIqaReviewerOverride(cohortId: string): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = sessionStorage.getItem(IQA_COHORT_REVIEWER_OVERRIDE_KEY);
+    const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+    const v = map[cohortId];
+    return v === '' ? undefined : v;
+  } catch {
+    return undefined;
+  }
+}
+
+export function setCohortIqaReviewerOverride(cohortId: string, reviewerId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = sessionStorage.getItem(IQA_COHORT_REVIEWER_OVERRIDE_KEY);
+    const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+    map[cohortId] = reviewerId;
+    sessionStorage.setItem(IQA_COHORT_REVIEWER_OVERRIDE_KEY, JSON.stringify(map));
+    window.dispatchEvent(new CustomEvent('iqa-cohort-reviewer-override-updated'));
   } catch { /* ignore */ }
 }
 

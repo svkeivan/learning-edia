@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { getIqaChecks, getIqaTutors, getIqaCategories, updateIqaCheck, addFeedbackRecord } from '@/lib/iqa-data';
-import { submissions, assessments, getStudentCohort } from '@/lib/mock-data';
+import { submissions, assessments, getStudentCohort, getExamDateForSubmission, getSubmissionVersionOptions } from '@/lib/mock-data';
 import type { IqaCheckStatus, IqaOutcomeType, IqaReviewRound } from '@/lib/iqa-data';
 
 const REVIEWER_NAME = 'Admin User';
@@ -22,64 +22,93 @@ interface AssessorForm {
   gradedAt: string;
 }
 
-function getMockAssessorForm(submissionId: string, isPassing: boolean): AssessorForm {
+function getMockAssessorForm(submissionId: string, isPassing: boolean, attemptNumber: number): AssessorForm {
   const seed = submissionId.charCodeAt(submissionId.length - 1);
+  const isRevision = attemptNumber > 1;
 
   const questions: AssessorFormQuestion[] = [
     {
       question: 'Did the student demonstrate understanding of the core principles?',
-      answer: isPassing ? 'Yes — student showed clear understanding throughout the practical assessment.' : 'Partially — some core areas need reinforcement.',
+      answer: isRevision
+        ? (isPassing ? 'Yes — re-assessment confirms clear understanding. Previous concerns addressed.' : 'Partially — some areas improved from first attempt, but gaps remain.')
+        : (isPassing ? 'Yes — student showed clear understanding throughout the practical assessment.' : 'Partially — some core areas need reinforcement.'),
       type: 'yesno',
     },
     {
       question: 'Were all safety protocols followed during the assessment?',
-      answer: seed % 3 === 0 ? 'No — minor safety protocol deviation noted.' : 'Yes — all safety protocols were observed.',
+      answer: isRevision
+        ? (seed % 2 === 0 ? 'Yes — all safety protocols observed on re-assessment.' : 'Yes — improved from prior attempt. All protocols now followed.')
+        : (seed % 3 === 0 ? 'No — minor safety protocol deviation noted.' : 'Yes — all safety protocols were observed.'),
       type: 'yesno',
     },
     {
       question: 'Assessor notes on practical competency',
-      answer: isPassing
-        ? 'Student completed all required tasks within the time limit. Work quality meets the industry standard. Tools and materials were used appropriately.'
-        : 'Student struggled with several key tasks. Time management was poor and work quality was below the expected standard in at least two areas.',
+      answer: isRevision
+        ? (isPassing
+          ? 'Re-assessment shows improvement in key areas flagged during the first attempt. Student has addressed the feedback and now meets the required standard. Practical skills are adequate.'
+          : 'Despite re-assessment, student still falls short in critical practical areas. Additional training recommended before next attempt.')
+        : (isPassing
+          ? 'Student completed all required tasks within the time limit. Work quality meets the industry standard. Tools and materials were used appropriately.'
+          : 'Student struggled with several key tasks. Time management was poor and work quality was below the expected standard in at least two areas.'),
       type: 'text',
     },
     {
       question: 'Evidence portfolio completeness',
-      answer: isPassing ? 'Complete' : 'Incomplete — missing items noted',
+      answer: isRevision
+        ? (isPassing ? 'Complete — updated portfolio addresses previous gaps' : 'Partially complete — some items updated but still missing key evidence')
+        : (isPassing ? 'Complete' : 'Incomplete — missing items noted'),
       type: 'choice',
     },
     {
-      question: 'Additional observations or concerns',
-      answer: seed % 2 === 0
-        ? 'No additional concerns. Student performed well overall.'
-        : 'Student may benefit from additional supervised practice before working independently.',
+      question: isRevision ? 'Changes made since previous assessment' : 'Additional observations or concerns',
+      answer: isRevision
+        ? (isPassing
+          ? 'Student revisited weak areas identified in IQA feedback. Documentation has been updated and practical work repeated under supervision.'
+          : 'Student attempted to address feedback but key practical elements remain below standard. Recommend supervised workshop session before next attempt.')
+        : (seed % 2 === 0
+          ? 'No additional concerns. Student performed well overall.'
+          : 'Student may benefit from additional supervised practice before working independently.'),
       type: 'text',
     },
     {
       question: 'Were documentation and records accurate and complete?',
-      answer: isPassing ? 'Yes — all records are complete and accurate.' : 'No — documentation was incomplete in several areas.',
+      answer: isRevision
+        ? (isPassing ? 'Yes — records updated and now complete.' : 'Partially — some records corrected but documentation still has gaps.')
+        : (isPassing ? 'Yes — all records are complete and accurate.' : 'No — documentation was incomplete in several areas.'),
       type: 'yesno',
     },
     {
       question: 'Assessor recommendation',
-      answer: isPassing
-        ? 'Student is competent and ready for the next stage of their qualification.'
-        : 'Student should revisit key module sections before retaking this assessment.',
+      answer: isRevision
+        ? (isPassing
+          ? 'Following re-assessment, student is now competent. The revisions address all IQA concerns from the previous round.'
+          : 'Further re-assessment needed. Student should complete additional supervised practice and resubmit evidence.')
+        : (isPassing
+          ? 'Student is competent and ready for the next stage of their qualification.'
+          : 'Student should revisit key module sections before retaking this assessment.'),
       type: 'text',
     },
   ];
 
-  const evidenceNotes = isPassing
-    ? 'Student submitted all required evidence. Work demonstrates adequate understanding of core principles and practical application.'
-    : 'Several areas require improvement. Evidence submitted is incomplete in parts.';
+  const evidenceNotes = isRevision
+    ? (isPassing
+      ? 'Updated evidence portfolio received. All previously flagged gaps have been addressed. Work now demonstrates competency.'
+      : 'Revised evidence submitted but several areas still require attention. Portfolio remains incomplete.')
+    : (isPassing
+      ? 'Student submitted all required evidence. Work demonstrates adequate understanding of core principles and practical application.'
+      : 'Several areas require improvement. Evidence submitted is incomplete in parts.');
 
-  const overallComments = isPassing
-    ? 'Overall strong performance. Minor areas for development noted but core competency demonstrated.'
-    : 'Significant gaps in knowledge and application. Decision requires IQA scrutiny.';
+  const overallComments = isRevision
+    ? (isPassing
+      ? 'Re-assessment confirms competency. Previous IQA feedback has been fully addressed. Recommend approval.'
+      : 'Re-assessment shows some improvement but does not yet meet the required standard. Further review needed.')
+    : (isPassing
+      ? 'Overall strong performance. Minor areas for development noted but core competency demonstrated.'
+      : 'Significant gaps in knowledge and application. Decision requires IQA scrutiny.');
 
-  const hours = 9 + (seed % 8);
-  const minutes = (seed * 7) % 60;
-  const dateNum = 12 + (seed % 6);
+  const hours = 9 + (seed % 8) + (isRevision ? 2 : 0);
+  const minutes = (seed * 7 + (isRevision ? 15 : 0)) % 60;
+  const dateNum = 12 + (seed % 6) + (isRevision ? (attemptNumber * 2) : 0);
   const gradedAt = `${dateNum} Feb 2026, ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 
   return { questions, evidenceNotes, overallComments, gradedAt };
@@ -104,7 +133,19 @@ export default function IqaReviewDetailPage() {
   }, []);
 
   const check = useMemo(() => getIqaChecks().find(c => c.id === checkId), [checkId, refreshKey]);
-  const submission = check ? submissions.find(s => s.id === check.submissionId) : null;
+
+  const [displaySubmissionId, setDisplaySubmissionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (check) setDisplaySubmissionId(check.submissionId);
+  }, [check?.id, check?.submissionId]);
+
+  const submission = useMemo(() => {
+    if (!check) return null;
+    const sid = displaySubmissionId ?? check.submissionId;
+    return submissions.find(s => s.id === sid) ?? null;
+  }, [check, displaySubmissionId]);
+
   const assessment = submission ? assessments.find(a => a.id === submission.assessmentId) : null;
   const iqaTutors = getIqaTutors();
   const iqaCategories = getIqaCategories();
@@ -112,6 +153,8 @@ export default function IqaReviewDetailPage() {
   const category = assessor ? iqaCategories.find(c => c.id === assessor.categoryId) : null;
   const assignedReviewer = check?.assignedTo ? iqaTutors.find(t => t.id === check.assignedTo) : null;
   const cohort = submission ? getStudentCohort(submission.email) : undefined;
+  const examDate = submission ? getExamDateForSubmission(submission.email, submission.assessmentId) : undefined;
+  const submissionVersionOptions = check ? getSubmissionVersionOptions(check.submissionId) : [];
 
   const [feedback, setFeedback] = useState(check?.feedback ?? '');
   const [error, setError] = useState('');
@@ -150,7 +193,8 @@ export default function IqaReviewDetailPage() {
 
   const isPassing = (submission.score ?? 0) >= assessment.passMark;
   const isPending = localStatus === 'Pending';
-  const assessorForm = getMockAssessorForm(submission.id, isPassing);
+  const isSkipped = localStatus === 'Skipped';
+  const assessorForm = getMockAssessorForm(submission.id, isPassing, submission.attemptNumber);
 
   const pdfFile = submission.answers?.find(a => a.type === 'file');
 
@@ -233,26 +277,39 @@ export default function IqaReviewDetailPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">{assessment.module}</span>
                 </div>
-                <h1 className="text-xl font-bold text-gray-900 leading-tight">{assessment.title}</h1>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
-                  isPassing ? 'bg-green-50 text-green-700 ring-1 ring-green-200' : 'bg-red-50 text-red-700 ring-1 ring-red-200'
-                }`}>
-                  {isPassing ? 'Pass' : 'Fail'}
-                </span>
-                <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
-                  localStatus === 'Pending' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'
-                    : localStatus === 'Approved' ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
-                      : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
-                }`}>
-                  {localStatus}
-                </span>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold text-gray-900 leading-tight">{assessment.title}</h1>
+                  {submissionVersionOptions.length > 1 && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                      {submissionVersionOptions.length} versions
+                    </span>
+                  )}
+                </div>
+                {submissionVersionOptions.length > 1 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <label htmlFor="iqa-submission-version" className="text-xs font-medium text-gray-500">Viewing version</label>
+                    <div className="flex items-center gap-1">
+                      {submissionVersionOptions.map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setDisplaySubmissionId(opt.id)}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+                            submission.id === opt.id
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Info grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 mt-5 pt-4 border-t border-gray-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 mt-5 pt-4 border-t border-gray-100">
               <div>
                 <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Student</p>
                 <p className="text-sm font-semibold text-gray-900">{submission.student}</p>
@@ -276,7 +333,11 @@ export default function IqaReviewDetailPage() {
                 <p className="text-sm font-medium text-gray-700">{submission.submittedAt}</p>
               </div>
               <div>
-                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Version</p>
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Exam date</p>
+                <p className="text-sm font-medium text-gray-700">{examDate ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Review round</p>
                 <div className="flex items-center gap-1.5">
                   <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${
                     currentVersion === 1 ? 'bg-gray-400' : 'bg-orange-500'
@@ -292,6 +353,34 @@ export default function IqaReviewDetailPage() {
           </div>
         </div>
 
+        {submissionVersionOptions.length > 1 && submission.id !== check.submissionId && (
+          <div className="mb-5 bg-purple-50 border border-purple-200 rounded-xl px-5 py-4 flex items-center gap-3">
+            <svg className="text-purple-500 shrink-0" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-purple-900">
+                Viewing Attempt {submission.attemptNumber} — the assessor form below reflects this version
+              </p>
+              <p className="text-xs text-purple-700 mt-0.5">
+                Score: {submission.score}% &middot; Submitted: {submission.submittedAt} &middot; Status: {submission.status}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isSkipped && (
+          <div className="mb-5 bg-gray-50 border border-gray-200 rounded-xl px-5 py-4">
+            <p className="text-sm font-semibold text-gray-800">Skipped</p>
+            <p className="text-xs text-gray-600 mt-1">
+              This assessment was marked skipped when the cohort review was completed.
+            </p>
+            {check.feedback && (
+              <p className="text-xs text-gray-500 mt-2 border-t border-gray-200 pt-2">{check.feedback}</p>
+            )}
+          </div>
+        )}
+
         {/* ── Two-column layout: Form (scrollable) + Right sidebar ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
 
@@ -302,8 +391,20 @@ export default function IqaReviewDetailPage() {
               <div className="h-1.5 bg-gradient-to-r from-violet-500 to-purple-600" />
               <div className="px-5 py-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-gray-900">Assessor Evaluation Form</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">Completed by {assessor?.name ?? 'Unknown'} on {assessorForm.gradedAt}</p>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-gray-900">Assessor Evaluation Form</h2>
+                    {submission.attemptNumber > 1 && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">
+                        Attempt {submission.attemptNumber}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Completed by {assessor?.name ?? 'Unknown'} on {assessorForm.gradedAt}
+                    {examDate && (
+                      <span className="text-gray-300"> · Exam {examDate}</span>
+                    )}
+                  </p>
                 </div>
                 <span className="text-xs text-gray-400">{assessorForm.questions.length} questions</span>
               </div>
@@ -486,7 +587,7 @@ export default function IqaReviewDetailPage() {
             )}
 
             {/* Already reviewed outcome */}
-            {!isPending && localOutcome && (
+            {!isPending && !isSkipped && localOutcome && (
               <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
                 <div className={`h-1 ${localOutcome === 'approved' ? 'bg-green-500' : 'bg-amber-500'}`} />
                 <div className="px-5 py-4">
@@ -510,7 +611,7 @@ export default function IqaReviewDetailPage() {
             )}
 
             {/* Review Actions */}
-            {isPending && (
+            {isPending && !isSkipped && (
               <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
                 <div className="px-5 py-4">

@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
-import { getIqaChecks, getIqaTutors, getCohortIqaCompletedAt } from '@/lib/iqa-data';
+import {
+  getIqaChecks,
+  getIqaTutors,
+  getCohortIqaCompletedAt,
+  getCohortIqaReviewerOverride,
+  setCohortIqaReviewerOverride,
+} from '@/lib/iqa-data';
 import { cohorts, submissions, assessments } from '@/lib/mock-data';
 import type { IqaCheck } from '@/lib/iqa-data';
 
@@ -33,6 +39,7 @@ export default function SamplingPage() {
   const [checks, setChecks] = useState<IqaCheck[]>([]);
   const [mounted, setMounted] = useState(false);
   const tutors = getIqaTutors();
+  const reviewerTutors = useMemo(() => tutors.filter(t => t.role !== 'assessor'), [tutors]);
 
   const [filterTrade, setFilterTrade] = useState('all');
   const [filterAssessor, setFilterAssessor] = useState('all');
@@ -46,9 +53,11 @@ export default function SamplingPage() {
     refresh();
     window.addEventListener('iqa-checks-updated', refresh);
     window.addEventListener('iqa-cohort-completed-updated', refresh);
+    window.addEventListener('iqa-cohort-reviewer-override-updated', refresh);
     return () => {
       window.removeEventListener('iqa-checks-updated', refresh);
       window.removeEventListener('iqa-cohort-completed-updated', refresh);
+      window.removeEventListener('iqa-cohort-reviewer-override-updated', refresh);
     };
   }, []);
 
@@ -63,11 +72,13 @@ export default function SamplingPage() {
       const approved = cohortChecks.filter(c => c.status === 'Approved').length;
       const rejected = cohortChecks.filter(c => c.status === 'Rejected').length;
       const pending = cohortChecks.filter(c => c.status === 'Pending').length;
+      const skipped = cohortChecks.filter(c => c.status === 'Skipped').length;
       const notReviewed = cohortSubs.length - cohortChecks.length;
       const assessor = tutors.find(t => t.id === coh.assessorId);
       const exams = coh.examIds.map(id => assessments.find(a => a.id === id)).filter(Boolean);
 
-      const reviewer = coh.iqaReviewerId ? tutors.find(t => t.id === coh.iqaReviewerId) : undefined;
+      const leadId = getCohortIqaReviewerOverride(coh.id) ?? coh.iqaReviewerId;
+      const reviewer = leadId ? tutors.find(t => t.id === leadId) : undefined;
       const completedAt = getCohortIqaCompletedAt(coh.id);
 
       return {
@@ -76,10 +87,12 @@ export default function SamplingPage() {
         approved,
         rejected,
         pending,
+        skipped,
         notReviewed,
         reviewed: approved + rejected,
         assessor,
         reviewer,
+        leadId,
         completedAt,
         exams,
       };
@@ -132,9 +145,9 @@ export default function SamplingPage() {
         <p className="text-sm text-gray-500 mb-1">
           <Link href="/iqa/review-queue" className="hover:text-orange-600 transition-colors">IQA</Link>
           {' / '}
-          <span className="text-gray-900 font-medium">Sampling</span>
+          <span className="text-gray-900 font-medium">Cohort View</span>
         </p>
-        <h1 className="text-2xl font-bold text-gray-900">Sampling</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Cohort View</h1>
         <p className="text-gray-500 text-sm mt-1">
           Overview of cohort IQA review progress and reviewer assignments
         </p>
@@ -221,7 +234,9 @@ export default function SamplingPage() {
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Reviewer</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Students</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Exams</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Sent for IQA</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
+               
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[160px]">IQA Progress</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Breakdown</th>
                 </tr>
@@ -245,14 +260,33 @@ export default function SamplingPage() {
                     <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-700">{cs.assessor?.name ?? '—'}</span>
                     </td>
-                    <td className="py-3.5 px-5">
-                      <span className="text-sm text-gray-700">{cs.reviewer?.name ?? <span className="text-gray-400">—</span>}</span>
+                    <td className="py-3.5 px-5" onClick={e => e.stopPropagation()}>
+                      {cs.reviewed === 0 && !cs.completedAt ? (
+                        <select
+                          value={cs.leadId ?? ''}
+                          onChange={e => {
+                            const v = e.target.value;
+                            if (v) setCohortIqaReviewerOverride(cs.cohort.id, v);
+                          }}
+                          className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 max-w-[180px] bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        >
+                          <option value="" disabled>Select reviewer…</option>
+                          {reviewerTutors.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-700">{cs.reviewer?.name ?? <span className="text-gray-400">—</span>}</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-600">{cs.cohort.students.length}</span>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-600">{cs.cohort.examIds.length}</span>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <span className="text-sm text-gray-600">{cs.cohort.iqaSentDate ?? '—'}</span>
                     </td>
                     <td className="py-3.5 px-5">
                       {cs.completedAt ? (
@@ -263,6 +297,7 @@ export default function SamplingPage() {
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Not Started</span>
                       )}
                     </td>
+                
                     <td className="py-3.5 px-5">
                       <ProgressBar reviewed={cs.reviewed} total={cs.totalSubs} />
                       <p className="text-[11px] text-gray-400 mt-1">
@@ -284,6 +319,11 @@ export default function SamplingPage() {
                         {cs.pending > 0 && (
                           <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
                             {cs.pending} pending
+                          </span>
+                        )}
+                        {cs.skipped > 0 && (
+                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700">
+                            {cs.skipped} skipped
                           </span>
                         )}
                         {cs.notReviewed > 0 && (
