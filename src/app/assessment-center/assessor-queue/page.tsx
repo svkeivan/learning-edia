@@ -195,8 +195,7 @@ function AssessorQueueContent() {
                     <tr className="border-b border-gray-100 bg-gray-50">
                       <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
                       <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Trade</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Students</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Exams</th>
+                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[100px]">Students / exams</th>
                       <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Exam Dates</th>
                       <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
                     </tr>
@@ -218,10 +217,16 @@ function AssessorQueueContent() {
                           </span>
                         </td>
                         <td className="py-3.5 px-5">
-                          <span className="text-sm text-gray-600">{cs.cohort.students.length}</span>
-                        </td>
-                        <td className="py-3.5 px-5">
-                          <span className="text-sm text-gray-600">{cs.cohort.examIds.length}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <p className="text-sm font-medium text-gray-900 tabular-nums">
+                              {cs.cohort.students.length}
+                              <span className="font-normal text-gray-500"> students</span>
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 tabular-nums">
+                              {cs.cohort.examIds.length}
+                              <span className="font-normal text-gray-500"> exams</span>
+                            </p>
+                          </div>
                         </td>
                         <td className="py-3.5 px-5">
                           <div className="flex flex-col gap-0.5">

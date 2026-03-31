@@ -217,9 +217,8 @@ function ReviewQueueContent() {
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Trade</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessor</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Students</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[160px]">IQA Progress</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Breakdown</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[100px]">Students / exams</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[220px]">IQA progress</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Finished</th>
                 </tr>
@@ -244,41 +243,52 @@ function ReviewQueueContent() {
                       <span className="text-sm text-gray-700">{cs.assessor?.name ?? '—'}</span>
                     </td>
                     <td className="py-3.5 px-5">
-                      <span className="text-sm text-gray-600">{cs.cohort.students.length}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-medium text-gray-900 tabular-nums">
+                          {cs.cohort.students.length}
+                          <span className="font-normal text-gray-500"> students</span>
+                        </p>
+                        <p className="text-sm font-medium text-gray-900 tabular-nums">
+                          {cs.cohort.examIds.length}
+                          <span className="font-normal text-gray-500"> exams</span>
+                        </p>
+                      </div>
                     </td>
                     <td className="py-3.5 px-5">
-                      <ProgressBar reviewed={cs.reviewed} total={cs.totalSubs} />
-                      <p className="text-[11px] text-gray-400 mt-1">
-                        {cs.reviewed} / {cs.totalSubs} reviewed
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {cs.approved > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
-                            {cs.approved} approved
-                          </span>
-                        )}
-                        {cs.rejected > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                            {cs.rejected} rejected
-                          </span>
-                        )}
-                        {cs.pending > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                            {cs.pending} pending
-                          </span>
-                        )}
-                        {cs.skipped > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700">
-                            {cs.skipped} skipped
-                          </span>
-                        )}
-                        {cs.notReviewed > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                            {cs.notReviewed} not in queue
-                          </span>
-                        )}
+                      <div className="flex flex-col gap-2.5 min-w-[200px]">
+                        <div>
+                          <ProgressBar reviewed={cs.reviewed} total={cs.totalSubs} />
+                          <p className="text-[11px] text-gray-400 mt-1.5">
+                            {cs.reviewed} / {cs.totalSubs} reviewed
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {cs.approved > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                              {cs.approved} approved
+                            </span>
+                          )}
+                          {cs.rejected > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                              {cs.rejected} rejected
+                            </span>
+                          )}
+                          {cs.pending > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                              {cs.pending} pending
+                            </span>
+                          )}
+                          {cs.skipped > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700">
+                              {cs.skipped} skipped
+                            </span>
+                          )}
+                          {cs.notReviewed > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                              {cs.notReviewed} not in queue
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="py-3.5 px-5">

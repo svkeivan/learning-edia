@@ -156,6 +156,14 @@ export const iqaChecksBase: IqaCheck[] = [
   { id: 'c56', submissionId: 's195', assessorId: 't4', status: 'Pending' },
   { id: 'c57', submissionId: 's200', assessorId: 't4', status: 'Pending', assignedTo: 't2' },
   { id: 'c58', submissionId: 's205', assessorId: 't4', status: 'Approved', reviewerName: 'David Kumar', reviewedAt: '1 Mar 2026, 14:30', outcomeType: 'approved', assignedTo: 't4' },
+
+  // ── Extra rejected returns (assessor queue demo; avoids cohorts still “Not Started” on Cohort View) ──
+  { id: 'c59', submissionId: 's38', assessorId: 't1', status: 'Rejected', reviewerName: 'Tom Bradley', reviewedAt: '12 Feb 2026, 10:00', feedback: 'Practical notes lack time stamps.', outcomeType: 'recheck-assessor', assignedTo: 't6' },
+  { id: 'c60', submissionId: 's42', assessorId: 't1', status: 'Rejected', reviewerName: 'James Chen', reviewedAt: '13 Feb 2026, 15:30', feedback: 'Competency matrix incomplete.', outcomeType: 'recheck-assessor', assignedTo: 't2' },
+  { id: 'c61', submissionId: 's90', assessorId: 't3', status: 'Rejected', reviewerName: 'David Kumar', reviewedAt: '7 Feb 2026, 09:40', feedback: 'BS 7671 reference incorrect on worksheet.', outcomeType: 'recheck-assessor', assignedTo: 't4' },
+  { id: 'c62', submissionId: 's94', assessorId: 't3', status: 'Rejected', reviewerName: 'Sarah Mitchell', reviewedAt: '7 Feb 2026, 14:15', feedback: 'Cable sizing calculation not shown.', outcomeType: 'recheck-assessor', assignedTo: 't1' },
+  { id: 'c63', submissionId: 's160', assessorId: 't4', status: 'Rejected', reviewerName: 'James Chen', reviewedAt: '26 Feb 2026, 12:00', feedback: 'Test results sheet unsigned.', outcomeType: 'recheck-assessor', assignedTo: 't2' },
+  { id: 'c64', submissionId: 's164', assessorId: 't4', status: 'Rejected', reviewerName: 'Tom Bradley', reviewedAt: '27 Feb 2026, 09:20', feedback: 'Isolation procedure not recorded.', outcomeType: 'recheck-assessor', assignedTo: 't6' },
 ];
 
 // ── Categories ────────────────────────────────────────────────────────────

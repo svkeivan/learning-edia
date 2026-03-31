@@ -46,6 +46,20 @@ export default function SamplingPage() {
   const [search, setSearch] = useState('');
 
   const [bump, setBump] = useState(0);
+  const [reviewerModal, setReviewerModal] = useState<null | {
+    cohortId: string;
+    cohortName: string;
+    initialLeadId: string;
+    step: 'pick' | 'confirm';
+    selectedReviewerId: string;
+  }>(null);
+  const [reviewerToast, setReviewerToast] = useState('');
+
+  useEffect(() => {
+    if (!reviewerToast) return;
+    const t = setTimeout(() => setReviewerToast(''), 3200);
+    return () => clearTimeout(t);
+  }, [reviewerToast]);
 
   useEffect(() => {
     setMounted(true);
@@ -129,6 +143,21 @@ export default function SamplingPage() {
 
   const activeFilterCount = [filterTrade !== 'all', filterAssessor !== 'all'].filter(Boolean).length;
 
+  const openReviewerModal = (cs: (typeof cohortStats)[number]) => {
+    const initial = cs.leadId ?? '';
+    setReviewerModal({
+      cohortId: cs.cohort.id,
+      cohortName: cs.cohort.name,
+      initialLeadId: initial,
+      step: 'pick',
+      selectedReviewerId: initial || reviewerTutors[0]?.id || '',
+    });
+  };
+
+  const closeReviewerModal = () => setReviewerModal(null);
+
+  const tutorName = (id: string) => tutors.find(t => t.id === id)?.name ?? '—';
+
   if (!mounted) {
     return (
       <div className="p-8 max-w-7xl mx-auto">
@@ -152,6 +181,12 @@ export default function SamplingPage() {
           Overview of cohort IQA review progress and reviewer assignments
         </p>
       </div>
+
+      {reviewerToast && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-xl px-5 py-3">
+          <p className="text-sm text-green-800 font-medium">{reviewerToast}</p>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
@@ -231,14 +266,11 @@ export default function SamplingPage() {
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Trade</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessor</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Reviewer</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Students</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Exams</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[120px]">Reviewer</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[100px]">Students / exams</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Sent for IQA</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
-               
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[160px]">IQA Progress</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Breakdown</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[220px]">IQA progress</th>
                 </tr>
               </thead>
               <tbody>
@@ -260,30 +292,22 @@ export default function SamplingPage() {
                     <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-700">{cs.assessor?.name ?? '—'}</span>
                     </td>
-                    <td className="py-3.5 px-5" onClick={e => e.stopPropagation()}>
-                      {cs.reviewed === 0 && !cs.completedAt ? (
-                        <select
-                          value={cs.leadId ?? ''}
-                          onChange={e => {
-                            const v = e.target.value;
-                            if (v) setCohortIqaReviewerOverride(cs.cohort.id, v);
-                          }}
-                          className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 max-w-[180px] bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
-                        >
-                          <option value="" disabled>Select reviewer…</option>
-                          {reviewerTutors.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-gray-700">{cs.reviewer?.name ?? <span className="text-gray-400">—</span>}</span>
-                      )}
+                    <td className="py-3.5 px-5 align-middle">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {cs.reviewer?.name ?? <span className="text-gray-400 font-normal">Not assigned</span>}
+                      </p>
                     </td>
                     <td className="py-3.5 px-5">
-                      <span className="text-sm text-gray-600">{cs.cohort.students.length}</span>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <span className="text-sm text-gray-600">{cs.cohort.examIds.length}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-medium text-gray-900 tabular-nums">
+                          {cs.cohort.students.length}
+                          <span className="font-normal text-gray-500"> students</span>
+                        </p>
+                        <p className="text-sm font-medium text-gray-900 tabular-nums">
+                          {cs.cohort.examIds.length}
+                          <span className="font-normal text-gray-500"> exams</span>
+                        </p>
+                      </div>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-600">{cs.cohort.iqaSentDate ?? '—'}</span>
@@ -299,37 +323,52 @@ export default function SamplingPage() {
                     </td>
                 
                     <td className="py-3.5 px-5">
-                      <ProgressBar reviewed={cs.reviewed} total={cs.totalSubs} />
-                      <p className="text-[11px] text-gray-400 mt-1">
-                        {cs.reviewed} / {cs.totalSubs} reviewed
-                      </p>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {cs.approved > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
-                            {cs.approved} approved
-                          </span>
-                        )}
-                        {cs.rejected > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                            {cs.rejected} rejected
-                          </span>
-                        )}
-                        {cs.pending > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                            {cs.pending} pending
-                          </span>
-                        )}
-                        {cs.skipped > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700">
-                            {cs.skipped} skipped
-                          </span>
-                        )}
-                        {cs.notReviewed > 0 && (
-                          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                            {cs.notReviewed} not in queue
-                          </span>
+                      <div className="flex flex-col gap-2.5 min-w-[200px]">
+                        <div>
+                          <ProgressBar reviewed={cs.reviewed} total={cs.totalSubs} />
+                          <p className="text-[11px] text-gray-400 mt-1.5">
+                            {cs.reviewed} / {cs.totalSubs} reviewed
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {cs.approved > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                              {cs.approved} approved
+                            </span>
+                          )}
+                          {cs.rejected > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                              {cs.rejected} rejected
+                            </span>
+                          )}
+                          {cs.pending > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                              {cs.pending} pending
+                            </span>
+                          )}
+                          {cs.skipped > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700">
+                              {cs.skipped} skipped
+                            </span>
+                          )}
+                          {cs.notReviewed > 0 && (
+                            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                              {cs.notReviewed} not in queue
+                            </span>
+                          )}
+                        </div>
+                        {cs.reviewed === 0 && !cs.completedAt && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); openReviewerModal(cs); }}
+                            className="self-start mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-gray-900 text-white px-3 py-2 text-xs font-semibold shadow-sm hover:bg-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 transition-colors"
+                            title="Change reviewer"
+                          >
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="opacity-90 shrink-0" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                            </svg>
+                            Reassign
+                          </button>
                         )}
                       </div>
                     </td>
@@ -346,6 +385,107 @@ export default function SamplingPage() {
           </p>
         </div>
       </div>
+
+      {reviewerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reviewer-modal-title"
+          >
+            <div className="px-6 py-5 border-b border-gray-100">
+              <h2 id="reviewer-modal-title" className="text-lg font-bold text-gray-900">
+                {reviewerModal.step === 'pick' ? 'Change reviewer' : 'Confirm reviewer change'}
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">{reviewerModal.cohortName}</p>
+            </div>
+
+            {reviewerModal.step === 'pick' ? (
+              <div className="px-6 py-5 space-y-4">
+                <div>
+                  <label htmlFor="reviewer-modal-select" className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Reviewer
+                  </label>
+                  <select
+                    id="reviewer-modal-select"
+                    value={reviewerModal.selectedReviewerId}
+                    onChange={e => setReviewerModal(m => m && { ...m, selectedReviewerId: e.target.value })}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+                  >
+                    {reviewerTutors.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-gray-500">
+                  While IQA is not started, you can change this cohort&apos;s reviewer.
+                </p>
+              </div>
+            ) : (
+              <div className="px-6 py-5 space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <p className="text-sm text-amber-900 font-medium mb-1">Please confirm</p>
+                  <p className="text-sm text-amber-800 leading-relaxed">
+                    Change reviewer for <strong>{reviewerModal.cohortName}</strong> from{' '}
+                    <strong>{reviewerModal.initialLeadId ? tutorName(reviewerModal.initialLeadId) : 'Not assigned'}</strong> to{' '}
+                    <strong>{tutorName(reviewerModal.selectedReviewerId)}</strong>?
+                  </p>
+                  <p className="text-xs text-amber-700 mt-2">
+                    New queue items for this cohort will use the updated reviewer where applicable.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3">
+              {reviewerModal.step === 'pick' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={closeReviewerModal}
+                    className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!reviewerModal.selectedReviewerId || reviewerModal.selectedReviewerId === reviewerModal.initialLeadId}
+                    onClick={() => {
+                      if (reviewerModal.selectedReviewerId === reviewerModal.initialLeadId) return;
+                      setReviewerModal(m => m && { ...m, step: 'confirm' });
+                    }}
+                    className="px-5 py-2 text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-45 disabled:pointer-events-none"
+                  >
+                    Continue
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setReviewerModal(m => m && { ...m, step: 'pick' })}
+                    className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCohortIqaReviewerOverride(reviewerModal.cohortId, reviewerModal.selectedReviewerId);
+                      setReviewerToast(`Reviewer updated to ${tutorName(reviewerModal.selectedReviewerId)}.`);
+                      closeReviewerModal();
+                    }}
+                    className="px-5 py-2 text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                  >
+                    Confirm change
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

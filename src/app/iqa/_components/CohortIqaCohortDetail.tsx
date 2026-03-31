@@ -309,7 +309,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
             </div>
             {effectiveLeadReviewerId && (
               <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Lead IQA reviewer</p>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Reviewer</p>
                 <p className="text-sm text-gray-900 font-medium mt-0.5">
                   {tutors.find(t => t.id === effectiveLeadReviewerId)?.name ?? '—'}
                 </p>
