@@ -184,7 +184,7 @@ export default function IqaReviewDetailPage() {
         <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
           <h3 className="text-gray-900 font-semibold mb-1">Assessment not found</h3>
           <Link href="/iqa/review-queue" className="text-orange-600 hover:underline text-sm mt-2 inline-block">
-            Back to Review Queue
+            Back to Audit
           </Link>
         </div>
       </div>
@@ -249,7 +249,7 @@ export default function IqaReviewDetailPage() {
         <nav className="flex items-center gap-1.5 text-sm mb-5">
           <Link href="/iqa" className="text-gray-400 hover:text-gray-600 transition-colors">IQA</Link>
           <span className="text-gray-300">/</span>
-          <Link href="/iqa/review-queue" className="text-gray-400 hover:text-gray-600 transition-colors">Review Queue</Link>
+          <Link href="/iqa/review-queue" className="text-gray-400 hover:text-gray-600 transition-colors">Audit</Link>
           <span className="text-gray-300">/</span>
           <span className="text-gray-700 font-medium">{isPending ? 'Review' : 'Details'}</span>
         </nav>

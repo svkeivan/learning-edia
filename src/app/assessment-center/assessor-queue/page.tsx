@@ -20,6 +20,10 @@ function AssessorQueueContent() {
   const [checks, setChecks] = useState<IqaCheck[]>([]);
   const [tab, setTab] = useState<TabKey>('cohorts');
   const [search, setSearch] = useState('');
+  const [rejSearch, setRejSearch] = useState('');
+  const [rejCohortFilter, setRejCohortFilter] = useState('all');
+  const [resubmitted, setResubmitted] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   const tutors = getIqaTutors();
   const assessors = useMemo(() => tutors.filter(t => t.role === 'assessor' || t.role === 'both'), [tutors]);
@@ -78,6 +82,26 @@ function AssessorQueueContent() {
         cohort: (typeof cohorts)[number] | undefined;
       }[];
   }, [checks, assessorId]);
+
+  const filteredRejected = useMemo(() => {
+    let list = rejectedItems;
+    if (rejCohortFilter !== 'all') {
+      list = list.filter(item => item.cohort?.id === rejCohortFilter);
+    }
+    if (rejSearch) {
+      const q = rejSearch.toLowerCase();
+      list = list.filter(item => {
+        const hay = [item.submission.student, item.submission.email, item.assessment?.title].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return list;
+  }, [rejectedItems, rejSearch, rejCohortFilter]);
+
+  const rejectedCohortOptions = useMemo(() => {
+    const ids = new Set(rejectedItems.map(i => i.cohort?.id).filter(Boolean));
+    return cohorts.filter(c => ids.has(c.id));
+  }, [rejectedItems]);
 
   const filteredCohorts = useMemo(() => {
     if (!search) return cohortStats;
@@ -240,59 +264,150 @@ function AssessorQueueContent() {
               <p className="text-gray-500 text-sm">No IQA reviews have been sent back for re-assessment.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50">
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Student</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessment</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Reviewer</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Rejected At</th>
-                      <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[240px]">IQA Feedback</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rejectedItems.map(item => (
-                      <tr
-                        key={item.check.id}
-                        className="border-b border-gray-50 hover:bg-red-50/30 transition-colors cursor-pointer"
-                        onClick={() => { window.location.href = `/assessment-center/assessor-queue/${item.submission.id}`; }}
-                      >
-                        <td className="py-3.5 px-5">
-                          <p className="font-medium text-gray-900">{item.submission.student}</p>
-                          <p className="text-xs text-gray-400">{item.submission.email}</p>
-                        </td>
-                        <td className="py-3.5 px-5">
-                          <p className="font-medium text-gray-900">{item.assessment?.title ?? '—'}</p>
-                          <p className="text-xs text-gray-400">{item.assessment?.module}</p>
-                        </td>
-                        <td className="py-3.5 px-5">
-                          <span className="text-sm text-gray-700">{item.cohort?.name ?? '—'}</span>
-                        </td>
-                        <td className="py-3.5 px-5">
-                          <span className="text-sm text-gray-700">{item.check.reviewerName ?? '—'}</span>
-                        </td>
-                        <td className="py-3.5 px-5">
-                          <span className="text-sm text-gray-600">{item.check.reviewedAt ?? '—'}</span>
-                        </td>
-                        <td className="py-3.5 px-5">
-                          <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 border border-red-100">
-                            {item.check.feedback ?? 'No feedback provided.'}
-                          </p>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <>
+              {/* Search & Filters */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[200px]">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search by student name or assessment..."
+                    value={rejSearch}
+                    onChange={e => setRejSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
+                  />
+                </div>
+                <select
+                  value={rejCohortFilter}
+                  onChange={e => setRejCohortFilter(e.target.value)}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+                >
+                  <option value="all">All Cohorts</option>
+                  {rejectedCohortOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                {(rejSearch || rejCohortFilter !== 'all') && (
+                  <button
+                    onClick={() => { setRejSearch(''); setRejCohortFilter('all'); }}
+                    className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
-              <div className="px-5 py-3 border-t border-gray-100">
-                <p className="text-xs text-gray-400">
-                  Click a row to edit and resubmit your assessment.
-                </p>
-              </div>
-            </div>
+
+              {filteredRejected.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-200 py-12 text-center">
+                  <p className="text-gray-500 text-sm">No rejected items match your filters.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-100 bg-gray-50">
+                          <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Student</th>
+                          <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessment</th>
+                          <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
+                          <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Reviewer</th>
+                          <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Rejected At</th>
+                          <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[200px]">IQA Feedback</th>
+                          <th className="py-3 px-5 text-right font-semibold text-xs text-gray-500 uppercase tracking-wide">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredRejected.map(item => {
+                          const isResubmitted = resubmitted.has(item.check.id);
+                          const isConfirming = confirming === item.check.id;
+                          return (
+                            <tr
+                              key={item.check.id}
+                              className={`border-b border-gray-50 transition-colors ${isResubmitted ? 'bg-green-50/40' : isConfirming ? 'bg-amber-50/40' : 'hover:bg-red-50/30'}`}
+                            >
+                              <td className="py-3.5 px-5">
+                                <p className="font-medium text-gray-900">{item.submission.student}</p>
+                                <p className="text-xs text-gray-400">{item.submission.email}</p>
+                              </td>
+                              <td className="py-3.5 px-5">
+                                <p className="font-medium text-gray-900">{item.assessment?.title ?? '—'}</p>
+                                <p className="text-xs text-gray-400">{item.assessment?.module}</p>
+                              </td>
+                              <td className="py-3.5 px-5">
+                                <span className="text-sm text-gray-700">{item.cohort?.name ?? '—'}</span>
+                              </td>
+                              <td className="py-3.5 px-5">
+                                <span className="text-sm text-gray-700">{item.check.reviewerName ?? '—'}</span>
+                              </td>
+                              <td className="py-3.5 px-5">
+                                <span className="text-sm text-gray-600">{item.check.reviewedAt ?? '—'}</span>
+                              </td>
+                              <td className="py-3.5 px-5">
+                                <p className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 border border-red-100">
+                                  {item.check.feedback ?? 'No feedback provided.'}
+                                </p>
+                              </td>
+                              <td className="py-3.5 px-5 text-right">
+                                {isResubmitted ? (
+                                  <div className="flex flex-col items-end gap-1">
+                                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1">
+                                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                      Resubmitted
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">Sent back for IQA audit</span>
+                                  </div>
+                                ) : isConfirming ? (
+                                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left min-w-[200px]">
+                                    <p className="text-xs font-semibold text-amber-900 mb-1">Resubmit without changes?</p>
+                                    <p className="text-[10px] text-amber-700 mb-2.5">
+                                      Your original assessment will be sent back to IQA for re-audit as-is.
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setResubmitted(prev => new Set(prev).add(item.check.id));
+                                          setConfirming(null);
+                                        }}
+                                        className="text-xs font-semibold bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                                      >
+                                        Confirm
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setConfirming(null); }}
+                                        className="text-xs font-medium text-gray-500 hover:text-gray-700 px-2 py-1.5 transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-end gap-2">
+                                    <button
+                                      onClick={() => { window.location.href = `/assessment-center/assessor-queue/${item.submission.id}`; }}
+                                      className="text-xs font-semibold bg-orange-600 hover:bg-orange-700 text-white px-3.5 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5"
+                                    >
+                                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" /></svg>
+                                      Edit &amp; Resubmit
+                                    </button>
+                             
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="px-5 py-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-400">
+                      <strong>Edit &amp; Resubmit</strong> lets you update your assessment form before sending it back for IQA audit. <strong>Resubmit without changes</strong> sends your original assessment as-is.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

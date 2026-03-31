@@ -81,7 +81,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   const isReviewer = variant === 'review-queue';
   const readOnlyCohort = variant === 'sampling' || variant === 'assessor-queue';
   const listPath = variant === 'assessor-queue' ? '/iqa/assessor-queue' : variant === 'sampling' ? '/iqa/sampling' : '/iqa/review-queue';
-  const listLabel = variant === 'assessor-queue' ? 'Assessor Queue' : variant === 'sampling' ? 'Cohort View' : 'Review Queue';
+  const listLabel = variant === 'assessor-queue' ? 'Assessor Queue' : variant === 'sampling' ? 'Cohort View' : 'Audit';
 
   // Sampling uses a dropdown filter; review-queue uses tabs
   const [filterExam, setFilterExam] = useState('all');

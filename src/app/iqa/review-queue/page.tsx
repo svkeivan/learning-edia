@@ -48,18 +48,27 @@ function ReviewQueueContent() {
 
   useEffect(() => {
     setMounted(true);
+    const list = getIqaTutors().filter(t => t.role !== 'assessor');
     try {
-      const list = getIqaTutors().filter(t => t.role !== 'assessor');
       const saved = sessionStorage.getItem(REVIEWER_STORAGE_KEY);
       if (saved && list.some(r => r.id === saved)) {
         setReviewerIdState(saved);
-      } else if (list[0]) {
-        setReviewerIdState(list[0].id);
+        return;
       }
-    } catch {
-      const list = getIqaTutors().filter(t => t.role !== 'assessor');
-      if (list[0]) setReviewerIdState(list[0].id);
+    } catch { /* ignore */ }
+    const cohortCounts = new Map<string, number>();
+    for (const coh of cohorts) {
+      const rid = getCohortIqaReviewerOverride(coh.id) ?? coh.iqaReviewerId;
+      if (rid && list.some(r => r.id === rid)) {
+        cohortCounts.set(rid, (cohortCounts.get(rid) ?? 0) + 1);
+      }
     }
+    let bestId = list[0]?.id ?? '';
+    let bestCount = 0;
+    for (const [id, count] of cohortCounts) {
+      if (count > bestCount) { bestId = id; bestCount = count; }
+    }
+    if (bestId) setReviewerIdState(bestId);
   }, []);
 
   const setReviewerId = (id: string) => {
@@ -150,9 +159,9 @@ function ReviewQueueContent() {
         <p className="text-sm text-gray-500 mb-1">IQA</p>
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Review Queue</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Audit</h1>
             <p className="text-gray-500 text-sm mt-1">
-              Your assigned cohorts for system review. Open a cohort to manage queue and review assessments.
+              Your assigned cohorts for IQA audit. Open a cohort to manage queue and review assessments.
             </p>
           </div>
           
@@ -291,7 +300,7 @@ function ReviewQueueContent() {
           </div>
           <div className="px-5 py-3 border-t border-gray-100">
             <p className="text-xs text-gray-400">
-              Open a cohort to manage the queue, review assessments, or finish the cohort.
+              Open a cohort to manage the audit queue, review assessments, or finish the cohort.
             </p>
           </div>
         </div>

@@ -267,7 +267,7 @@ export default function IqaAssignPage() {
             Categories
           </Link>
           <Link href="/iqa/review-queue" className="text-sm font-medium text-gray-600 border border-gray-200 px-4 py-2.5 rounded-lg hover:bg-gray-50">
-            Review Queue
+            Audit
           </Link>
         </div>
       </div>
@@ -294,8 +294,8 @@ export default function IqaAssignPage() {
 
       {/* Tab description */}
       {tab === 'all' && <p className="text-xs text-gray-500 mb-4">All graded assessments with IQA status, reviewer, and cohort information.</p>}
-      {tab === 'queue' && <p className="text-xs text-gray-500 mb-4">Assessments currently in the IQA review queue.</p>}
-      {tab === 'not-queue' && <p className="text-xs text-gray-500 mb-4">Graded assessments not yet queued for IQA review.</p>}
+      {tab === 'queue' && <p className="text-xs text-gray-500 mb-4">Assessments currently in the IQA audit queue.</p>}
+      {tab === 'not-queue' && <p className="text-xs text-gray-500 mb-4">Graded assessments not yet queued for IQA audit.</p>}
 
       {/* Filters */}
       <FiltersBar
