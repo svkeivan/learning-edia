@@ -315,7 +315,6 @@ function AssessorQueueContent() {
                           <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Student</th>
                           <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessment</th>
                           <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Cohort</th>
-                          <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Reviewer</th>
                           <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Rejected At</th>
                           <th className="py-3 px-5 text-right font-semibold text-xs text-gray-500 uppercase tracking-wide">Action</th>
                         </tr>
@@ -339,9 +338,6 @@ function AssessorQueueContent() {
                               </td>
                               <td className="py-3.5 px-5">
                                 <span className="text-sm text-gray-700">{item.cohort?.name ?? '—'}</span>
-                              </td>
-                              <td className="py-3.5 px-5">
-                                <span className="text-sm text-gray-700">{item.check.reviewerName ?? '—'}</span>
                               </td>
                               <td className="py-3.5 px-5">
                                 <span className="text-sm text-gray-600">{item.check.reviewedAt ?? '—'}</span>

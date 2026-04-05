@@ -277,7 +277,6 @@ function ReviewQueueContent() {
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[220px]">IQA progress</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Last Updated</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Finish Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -363,9 +362,6 @@ function ReviewQueueContent() {
                       <span className="text-sm text-gray-500" title={cs.cohort.lastUpdatedAt ? new Date(cs.cohort.lastUpdatedAt).toLocaleString() : ''}>
                         {cs.cohort.lastUpdatedAt ? formatRelativeTime(cs.cohort.lastUpdatedAt) : '—'}
                       </span>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <span className="text-sm text-gray-600">{cs.completedAt ?? '—'}</span>
                     </td>
                   </tr>
                 ))}

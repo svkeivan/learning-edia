@@ -99,6 +99,9 @@ export default function AssessorGradingPage() {
   }, [checks, submissionId]);
 
   const isRejectedItem = !!rejectedCheck;
+  const resubmitVersion = rejectedCheck
+    ? (rejectedCheck.reviewHistory?.length ?? 1) + 1
+    : 1;
 
   const [formAnswers, setFormAnswers] = useState<Record<number, string>>({});
   const [evidenceNotes, setEvidenceNotes] = useState('');
@@ -225,6 +228,11 @@ export default function AssessorGradingPage() {
               {rejectedCheck && !submitted && (
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-100 text-red-700">Needs Re-grading</span>
               )}
+              {isRejectedItem && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                  Version {resubmitVersion}
+                </span>
+              )}
             </div>
             <h1 className="text-xl font-bold text-gray-900 leading-tight">{assessment.title}</h1>
 
@@ -270,7 +278,14 @@ export default function AssessorGradingPage() {
                     {rejectedCheck ? 'Edit and resubmit your assessment below.' : 'Fill out the form based on the student\'s submission.'}
                   </p>
                 </div>
-                <span className="text-xs text-gray-400">{FORM_QUESTIONS.length} questions</span>
+                <div className="flex items-center gap-2">
+                  {isRejectedItem && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100 whitespace-nowrap">
+                      v{resubmitVersion}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-400">{FORM_QUESTIONS.length} questions</span>
+                </div>
               </div>
             </div>
 

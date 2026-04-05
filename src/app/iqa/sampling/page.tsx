@@ -203,10 +203,25 @@ export default function SamplingPage() {
           {' / '}
           <span className="text-gray-900 font-medium">Cohort View</span>
         </p>
-        <h1 className="text-2xl font-bold text-gray-900">Cohort View</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Overview of cohort IQA review progress and reviewer assignments
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Cohort View</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Overview of cohort IQA review progress and reviewer assignments
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {/* mock — not functional */}}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-colors"
+          >
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+            </svg>
+            <span>View as Assessor</span>
+            <span className="text-xs text-gray-400 font-normal">(Tony)</span>
+          </button>
+        </div>
       </div>
 
       {reviewerToast && (
