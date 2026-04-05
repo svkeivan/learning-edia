@@ -164,6 +164,20 @@ export const iqaChecksBase: IqaCheck[] = [
   { id: 'c62', submissionId: 's94', assessorId: 't3', status: 'Rejected', reviewerName: 'Sarah Mitchell', reviewedAt: '7 Feb 2026, 14:15', feedback: 'Cable sizing calculation not shown.', outcomeType: 'recheck-assessor', assignedTo: 't1' },
   { id: 'c63', submissionId: 's160', assessorId: 't4', status: 'Rejected', reviewerName: 'James Chen', reviewedAt: '26 Feb 2026, 12:00', feedback: 'Test results sheet unsigned.', outcomeType: 'recheck-assessor', assignedTo: 't2' },
   { id: 'c64', submissionId: 's164', assessorId: 't4', status: 'Rejected', reviewerName: 'Tom Bradley', reviewedAt: '27 Feb 2026, 09:20', feedback: 'Isolation procedure not recorded.', outcomeType: 'recheck-assessor', assignedTo: 't6' },
+
+  // ── Cohort 5: Bristol (assessor t1, reviewer t2) ── In Progress demo for default reviewer
+  { id: 'c65', submissionId: 's208', assessorId: 't1', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '28 Mar 2026, 10:00', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c66', submissionId: 's211', assessorId: 't1', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '28 Mar 2026, 14:30', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c67', submissionId: 's214', assessorId: 't1', status: 'Pending', assignedTo: 't2' },
+  { id: 'c68', submissionId: 's218', assessorId: 't1', status: 'Rejected', reviewerName: 'James Chen', reviewedAt: '29 Mar 2026, 09:15', feedback: 'Assessment criteria not fully addressed. Student evidence needs verification.', outcomeType: 'recheck-assessor', assignedTo: 't2' },
+  { id: 'c69', submissionId: 's222', assessorId: 't1', status: 'Pending', assignedTo: 't2' },
+
+  // ── Cohort 7: Glasgow (assessor t5, reviewer t2) ── In Progress demo for default reviewer
+  { id: 'c70', submissionId: 's244', assessorId: 't5', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '17 Apr 2026, 11:00', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c71', submissionId: 's247', assessorId: 't5', status: 'Pending', assignedTo: 't2' },
+  { id: 'c72', submissionId: 's250', assessorId: 't5', status: 'Approved', reviewerName: 'James Chen', reviewedAt: '17 Apr 2026, 15:30', outcomeType: 'approved', assignedTo: 't2' },
+  { id: 'c73', submissionId: 's253', assessorId: 't5', status: 'Pending', assignedTo: 't2' },
+  { id: 'c74', submissionId: 's257', assessorId: 't5', status: 'Pending', assignedTo: 't2' },
 ];
 
 // ── Categories ────────────────────────────────────────────────────────────
