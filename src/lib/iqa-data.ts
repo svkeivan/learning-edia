@@ -477,14 +477,19 @@ export function getFeedbackForAssessor(assessorId: string): IqaFeedbackRecord[] 
 
 // ── Cohort review completion (reviewer sign-off) ───────────────────────────
 
+const iqaCohortCompletedBase: Record<string, string> = {
+  coh1: '18 Feb 2026, 16:30',
+  coh2: '12 Feb 2026, 14:45',
+};
+
 export function getCohortIqaCompletedAt(cohortId: string): string | undefined {
-  if (typeof window === 'undefined') return undefined;
+  if (typeof window === 'undefined') return iqaCohortCompletedBase[cohortId];
   try {
     const raw = sessionStorage.getItem(IQA_COHORT_COMPLETED_KEY);
     const map: Record<string, string> = raw ? JSON.parse(raw) : {};
-    return map[cohortId];
+    return map[cohortId] ?? iqaCohortCompletedBase[cohortId];
   } catch {
-    return undefined;
+    return iqaCohortCompletedBase[cohortId];
   }
 }
 

@@ -233,6 +233,7 @@ export interface Cohort {
   packageName: string;
   students: { name: string; email: string }[];
   iqaSentDate?: string;
+  lastUpdatedAt?: string;
 }
 
 export const cohorts: Cohort[] = [
@@ -523,6 +524,16 @@ export const cohorts: Cohort[] = [
     ],
   },
 ];
+
+const _luOffsets: Record<string, number> = {
+  coh1: 43 * 60_000, coh2: 3 * 3_600_000, coh3: 24 * 3_600_000,
+  coh4: 4 * 86_400_000, coh5: 12 * 3_600_000, coh6: 25 * 60_000,
+  coh7: 6 * 86_400_000, coh8: 2 * 86_400_000, coh9: 8 * 3_600_000,
+  coh10: 3 * 86_400_000, coh11: 5 * 86_400_000, coh12: 1 * 3_600_000,
+};
+for (const _c of cohorts) {
+  _c.lastUpdatedAt = new Date(Date.now() - (_luOffsets[_c.id] ?? 86_400_000)).toISOString();
+}
 
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 

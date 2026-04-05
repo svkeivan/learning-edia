@@ -9,7 +9,7 @@ import {
   getCohortIqaReviewerOverride,
   setCohortIqaReviewerOverride,
 } from '@/lib/iqa-data';
-import { cohorts, submissions, assessments } from '@/lib/mock-data';
+import { cohorts, submissions, assessments, parseSubmitDate } from '@/lib/mock-data';
 import type { IqaCheck } from '@/lib/iqa-data';
 
 const tradeColors: Record<string, string> = {
@@ -35,6 +35,20 @@ function ProgressBar({ reviewed, total }: { reviewed: number; total: number }) {
   );
 }
 
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  const hrs = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
+  const weeks = Math.floor(days / 7);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins !== 1 ? 's' : ''} ago`;
+  if (hrs < 24) return `${hrs} hour${hrs !== 1 ? 's' : ''} ago`;
+  if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+  if (weeks < 5) return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export default function SamplingPage() {
   const [checks, setChecks] = useState<IqaCheck[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -43,6 +57,9 @@ export default function SamplingPage() {
 
   const [filterTrade, setFilterTrade] = useState('all');
   const [filterAssessor, setFilterAssessor] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [search, setSearch] = useState('');
 
   const [bump, setBump] = useState(0);
@@ -124,6 +141,16 @@ export default function SamplingPage() {
     return cohortStats.filter(cs => {
       if (filterTrade !== 'all' && cs.cohort.trade !== filterTrade) return false;
       if (filterAssessor !== 'all' && cs.cohort.assessorId !== filterAssessor) return false;
+      if (filterStatus !== 'all') {
+        const status = cs.completedAt ? 'completed' : cs.reviewed > 0 ? 'in-progress' : 'not-started';
+        if (status !== filterStatus) return false;
+      }
+      if (filterDateFrom || filterDateTo) {
+        const sentDate = cs.cohort.iqaSentDate ? parseSubmitDate(cs.cohort.iqaSentDate) : null;
+        if (!sentDate) return false;
+        if (filterDateFrom && sentDate < new Date(filterDateFrom)) return false;
+        if (filterDateTo && sentDate > new Date(filterDateTo + 'T23:59:59')) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         const haystack = [cs.cohort.name, cs.cohort.trade, cs.assessor?.name, cs.cohort.packageName]
@@ -132,7 +159,7 @@ export default function SamplingPage() {
       }
       return true;
     });
-  }, [cohortStats, filterTrade, filterAssessor, search]);
+  }, [cohortStats, filterTrade, filterAssessor, filterStatus, filterDateFrom, filterDateTo, search]);
 
   const totals = useMemo(() => ({
     cohorts: cohorts.length,
@@ -141,7 +168,7 @@ export default function SamplingPage() {
     pending: cohortStats.reduce((s, cs) => s + cs.pending, 0),
   }), [cohortStats]);
 
-  const activeFilterCount = [filterTrade !== 'all', filterAssessor !== 'all'].filter(Boolean).length;
+  const activeFilterCount = [filterTrade !== 'all', filterAssessor !== 'all', filterStatus !== 'all', !!filterDateFrom, !!filterDateTo].filter(Boolean).length;
 
   const openReviewerModal = (cs: (typeof cohortStats)[number]) => {
     const initial = cs.leadId ?? '';
@@ -236,9 +263,37 @@ export default function SamplingPage() {
           {uniqueAssessors.map(t => t && <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
 
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+        >
+          <option value="all">All Statuses</option>
+          <option value="completed">Completed</option>
+          <option value="in-progress">In Progress</option>
+          <option value="not-started">Not Started</option>
+        </select>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-400 whitespace-nowrap">From</span>
+          <input
+            type="date"
+            value={filterDateFrom}
+            onChange={e => setFilterDateFrom(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+          />
+          <span className="text-xs text-gray-400 whitespace-nowrap">To</span>
+          <input
+            type="date"
+            value={filterDateTo}
+            onChange={e => setFilterDateTo(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+          />
+        </div>
+
         {(activeFilterCount > 0 || search) && (
           <button
-            onClick={() => { setFilterTrade('all'); setFilterAssessor('all'); setSearch(''); }}
+            onClick={() => { setFilterTrade('all'); setFilterAssessor('all'); setFilterStatus('all'); setFilterDateFrom(''); setFilterDateTo(''); setSearch(''); }}
             className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
           >
             Clear filters
@@ -270,6 +325,7 @@ export default function SamplingPage() {
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[100px]">Students / exams</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Sent for IQA</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Last Updated</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[220px]">IQA progress</th>
                 </tr>
               </thead>
@@ -321,7 +377,11 @@ export default function SamplingPage() {
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Not Started</span>
                       )}
                     </td>
-                
+                    <td className="py-3.5 px-5">
+                      <span className="text-sm text-gray-500" title={cs.cohort.lastUpdatedAt ? new Date(cs.cohort.lastUpdatedAt).toLocaleString() : ''}>
+                        {cs.cohort.lastUpdatedAt ? formatRelativeTime(cs.cohort.lastUpdatedAt) : '—'}
+                      </span>
+                    </td>
                     <td className="py-3.5 px-5">
                       <div className="flex flex-col gap-2.5 min-w-[200px]">
                         <div>

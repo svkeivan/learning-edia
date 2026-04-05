@@ -8,7 +8,7 @@ import {
   getCohortIqaCompletedAt,
   getCohortIqaReviewerOverride,
 } from '@/lib/iqa-data';
-import { submissions, cohorts } from '@/lib/mock-data';
+import { submissions, cohorts, parseSubmitDate } from '@/lib/mock-data';
 import type { IqaCheck } from '@/lib/iqa-data';
 
 const REVIEWER_STORAGE_KEY = 'iqa-review-queue-reviewer-id';
@@ -34,6 +34,20 @@ function ProgressBar({ reviewed, total }: { reviewed: number; total: number }) {
       <span className="text-xs font-semibold text-gray-500 w-10 text-right">{percent}%</span>
     </div>
   );
+}
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  const hrs = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
+  const weeks = Math.floor(days / 7);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins !== 1 ? 's' : ''} ago`;
+  if (hrs < 24) return `${hrs} hour${hrs !== 1 ? 's' : ''} ago`;
+  if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+  if (weeks < 5) return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function ReviewQueueContent() {
@@ -127,11 +141,24 @@ function ReviewQueueContent() {
   }, [checks, tutors, reviewerId, cohortUiBump]);
 
   const [filterTrade, setFilterTrade] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [search, setSearch] = useState('');
 
   const filteredCohortStats = useMemo(() => {
     return cohortStats.filter(cs => {
       if (filterTrade !== 'all' && cs.cohort.trade !== filterTrade) return false;
+      if (filterStatus !== 'all') {
+        const status = cs.completedAt ? 'completed' : cs.reviewed > 0 ? 'in-progress' : 'not-started';
+        if (status !== filterStatus) return false;
+      }
+      if (filterDateFrom || filterDateTo) {
+        const sentDate = cs.cohort.iqaSentDate ? parseSubmitDate(cs.cohort.iqaSentDate) : null;
+        if (!sentDate) return false;
+        if (filterDateFrom && sentDate < new Date(filterDateFrom)) return false;
+        if (filterDateTo && sentDate > new Date(filterDateTo + 'T23:59:59')) return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         const haystack = [cs.cohort.name, cs.cohort.trade, cs.assessor?.name, cs.cohort.packageName]
@@ -140,7 +167,7 @@ function ReviewQueueContent() {
       }
       return true;
     });
-  }, [cohortStats, filterTrade, search]);
+  }, [cohortStats, filterTrade, filterStatus, filterDateFrom, filterDateTo, search]);
 
   if (!mounted || !reviewerId) {
     return (
@@ -159,7 +186,7 @@ function ReviewQueueContent() {
         <p className="text-sm text-gray-500 mb-1">IQA</p>
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Audit</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Audit Queue</h1>
             <p className="text-gray-500 text-sm mt-1">
               Your assigned cohorts for IQA audit. Open a cohort to manage queue and review assessments.
             </p>
@@ -189,9 +216,38 @@ function ReviewQueueContent() {
           <option value="all">All Trades</option>
           {[...new Set(cohortStats.map(c => c.cohort.trade))].map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        {(filterTrade !== 'all' || search) && (
+
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+        >
+          <option value="all">All Statuses</option>
+          <option value="completed">Complete</option>
+          <option value="in-progress">In Progress</option>
+          <option value="not-started">Not Started</option>
+        </select>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-400 whitespace-nowrap">From</span>
+          <input
+            type="date"
+            value={filterDateFrom}
+            onChange={e => setFilterDateFrom(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+          />
+          <span className="text-xs text-gray-400 whitespace-nowrap">To</span>
+          <input
+            type="date"
+            value={filterDateTo}
+            onChange={e => setFilterDateTo(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 bg-white"
+          />
+        </div>
+
+        {(filterTrade !== 'all' || filterStatus !== 'all' || filterDateFrom || filterDateTo || search) && (
           <button
-            onClick={() => { setFilterTrade('all'); setSearch(''); }}
+            onClick={() => { setFilterTrade('all'); setFilterStatus('all'); setFilterDateFrom(''); setFilterDateTo(''); setSearch(''); }}
             className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
           >
             Clear filters
@@ -220,7 +276,8 @@ function ReviewQueueContent() {
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[100px]">Students / exams</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide min-w-[220px]">IQA progress</th>
                   <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Status</th>
-                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Finished</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Last Updated</th>
+                  <th className="py-3 px-5 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Finish Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,9 +353,16 @@ function ReviewQueueContent() {
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
                           Complete
                         </span>
+                      ) : cs.reviewed > 0 ? (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">In Progress</span>
                       ) : (
-                        <span className="text-[11px] font-medium text-gray-500">In progress</span>
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Not Started</span>
                       )}
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <span className="text-sm text-gray-500" title={cs.cohort.lastUpdatedAt ? new Date(cs.cohort.lastUpdatedAt).toLocaleString() : ''}>
+                        {cs.cohort.lastUpdatedAt ? formatRelativeTime(cs.cohort.lastUpdatedAt) : '—'}
+                      </span>
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="text-sm text-gray-600">{cs.completedAt ?? '—'}</span>
