@@ -10,6 +10,8 @@ import {
   addIqaCheck,
   updateIqaCheck,
   autoAssignReviewer,
+  getSkippedSubmissionIds,
+  skipSubmissions,
   getCohortIqaCompletedAt,
   setCohortIqaCompleted,
   getCohortIqaReviewerOverride,
@@ -36,6 +38,7 @@ interface CohortSubmission {
   check: IqaCheck | undefined;
   assignedReviewer: IqaTutor | undefined;
   assessor: IqaTutor | undefined;
+  isSkipped: boolean;
 }
 
 // ── Progress Ring ────────────────────────────────────────────────────────────
@@ -75,6 +78,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   const { cohortId } = useParams<{ cohortId: string }>();
   const [checks, setChecks] = useState<IqaCheck[]>([]);
   const [tutors, setTutors] = useState<IqaTutor[]>([]);
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [mounted, setMounted] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -96,6 +100,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   const refresh = useCallback(() => {
     setChecks(getIqaChecks());
     setTutors(getIqaTutors());
+    setSkipped(getSkippedSubmissionIds());
   }, []);
 
   useEffect(() => {
@@ -134,17 +139,18 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
       const check = checks.find(c => c.submissionId === sub.id);
       const assignedReviewer = check?.assignedTo ? tutors.find(t => t.id === check.assignedTo) : undefined;
       const assessor = tutors.find(t => t.id === sub.gradedBy);
-      return { submission: sub, assessment, check, assignedReviewer, assessor };
+      const isSkipped = skipped.has(sub.id);
+      return { submission: sub, assessment, check, assignedReviewer, assessor, isSkipped };
     });
-  }, [cohort, checks, tutors]);
+  }, [cohort, checks, tutors, skipped]);
 
   const stats = useMemo(() => {
     const total = items.length;
     const approved = items.filter(i => i.check?.status === 'Approved').length;
     const rejected = items.filter(i => i.check?.status === 'Rejected').length;
     const pending = items.filter(i => i.check?.status === 'Pending').length;
-    const skipped = items.filter(i => i.check?.status === 'Skipped').length;
-    const notInQueue = items.filter(i => !i.check).length;
+    const skipped = items.filter(i => i.check?.status === 'Skipped' || i.isSkipped).length;
+    const notInQueue = items.filter(i => !i.check && !i.isSkipped).length;
     const inQueue = total - notInQueue;
     const reviewed = approved + rejected;
     const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0;
@@ -153,7 +159,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
 
   // Items split by queue membership (for reviewer tabs)
   const inQueueItems = useMemo(() => items.filter(i => !!i.check), [items]);
-  const notInQueueItems = useMemo(() => items.filter(i => !i.check), [items]);
+  const notInQueueItems = useMemo(() => items.filter(i => !i.check && !i.isSkipped), [items]);
 
   // Filtered items: reviewer uses tabs, sampling uses dropdown
   const filteredItems = useMemo(() => {
@@ -166,7 +172,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
     return base.filter(i => {
       if (filterExam !== 'all' && i.submission.assessmentId !== filterExam) return false;
       if (readOnlyCohort && filterStatus !== 'all') {
-        const st = i.check?.status ?? 'Not in Queue';
+        const st = i.check?.status ?? (i.isSkipped ? 'Skipped' : 'Not in Queue');
         if (filterStatus !== st) return false;
       }
       if (search) {
@@ -222,37 +228,13 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
     });
   };
 
-  const handleBulkApprove = () => {
-    const reviewedAt = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-    let approvedCount = 0;
-
-    [...selected].forEach((submissionId) => {
-      const sub = submissions.find(s => s.id === submissionId);
-      if (!sub?.gradedBy) return;
-      const existingCheck = checks.find(c => c.submissionId === submissionId);
-      if (existingCheck) return;
-
-      const reviewer = effectiveLeadReviewerId
-        ?? (autoAssignReviewer(sub.gradedBy, tutors.find(t => t.id === sub.gradedBy)?.categoryId) ?? undefined);
-
-      addIqaCheck({
-        id: `cohort-bulk-approved-${submissionId}-${Date.now()}`,
-        submissionId,
-        assessorId: sub.gradedBy,
-        status: 'Approved',
-        assignedTo: reviewer,
-        reviewerName: 'Bulk approval',
-        reviewedAt,
-        outcomeType: 'approved',
-        feedback: 'Approved from cohort bulk action.',
-      });
-      approvedCount += 1;
-    });
-
+  const handleBulkSkip = () => {
+    const count = selected.size;
+    skipSubmissions([...selected]);
     setSelected(new Set());
     refresh();
-    if (approvedCount > 0) {
-      setToast(`Approved ${approvedCount} assessment${approvedCount !== 1 ? 's' : ''}`);
+    if (count > 0) {
+      setToast(`Skipped ${count} assessment${count !== 1 ? 's' : ''}`);
     }
   };
 
@@ -562,21 +544,21 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-orange-900">
-              Bulk actions for Not in Queue
+              Bulk skip
             </p>
             <p className="text-xs text-orange-700">
               {selected.size > 0
                 ? `${selected.size} assessment${selected.size !== 1 ? 's' : ''} selected in this cohort.`
-                : 'Select cohort assessments below, or use the table checkbox to select all visible items.'}
+                : 'Select cohort assessments below, or use the table checkbox to select all visible items. Review is handled one item at a time.'}
             </p>
           </div>
           <button
             type="button"
-            onClick={handleBulkApprove}
+            onClick={handleBulkSkip}
             disabled={selected.size === 0}
-            className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            Approve selected
+            Skip selected
           </button>
         </div>
       )}
@@ -622,7 +604,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
               </thead>
               <tbody>
                 {displayItems.map(item => {
-                  const { submission: sub, assessment, check } = item;
+                  const { submission: sub, assessment, check, isSkipped } = item;
                   const isPassing = sub.status === 'Pass';
                   const examIdx = cohort.examIds.indexOf(sub.assessmentId);
                   const examDate = examIdx >= 0 ? cohort.examDates[examIdx] : '—';
@@ -683,6 +665,10 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                         {check ? (
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyles[check.status]}`}>
                             {check.status}
+                          </span>
+                        ) : isSkipped ? (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                            Skipped
                           </span>
                         ) : (
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">

@@ -24,7 +24,7 @@ interface Props {
   onPageChange: (page: number) => void;
   onClearFilters: () => void;
   onSwitchTab: (tab: Tab) => void;
-  onAddToQueue: (submissionId: string) => void;
+  onReviewDirectly: (submissionId: string) => void;
   onSkip: (submissionId: string) => void;
   onRequestAssign: (submissionId: string) => void;
 }
@@ -59,7 +59,7 @@ export function AssignTable({
   tutors, readOnly,
   onToggleAll, onToggleOne, onSortClick, onPageChange,
   onClearFilters, onSwitchTab,
-  onAddToQueue, onSkip, onRequestAssign,
+  onReviewDirectly, onSkip, onRequestAssign,
 }: Props) {
   const showCheckboxes = !readOnly && tab !== 'all';
   const showActions = !readOnly && tab !== 'all';
@@ -261,10 +261,10 @@ export function AssignTable({
                         {tab === 'not-queue' && (
                           <>
                             <button
-                              onClick={() => onAddToQueue(sub.id)}
+                              onClick={() => onReviewDirectly(sub.id)}
                               className="text-xs font-medium bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors"
                             >
-                              Add to Queue
+                              Review
                             </button>
                             <button
                               onClick={() => onSkip(sub.id)}

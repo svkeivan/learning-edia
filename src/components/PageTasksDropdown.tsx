@@ -7,7 +7,10 @@ type Task = {
   title: string;
   section: string;
   done: boolean;
+  takenBy?: string;
 };
+
+const currentUser = "Admin User";
 
 const sections = [
   "Assessment Center",
@@ -23,6 +26,7 @@ const initialTasks: Task[] = [
     title: "Review IQA sampling changes",
     section: "IQA",
     done: false,
+    takenBy: "Admin User",
   },
   {
     id: "check-assessor-queue",
@@ -63,8 +67,21 @@ export default function PageTasksDropdown() {
     );
   };
 
+  const toggleTakeTask = (taskId: string) => {
+    setTasks((currentTasks) =>
+      currentTasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              takenBy: task.takenBy === currentUser ? undefined : currentUser,
+            }
+          : task,
+      ),
+    );
+  };
+
   return (
-    <div className="fixed right-6 top-5 z-40">
+    <div className="fixed right-6 top-5 z-[60]">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -110,16 +127,37 @@ export default function PageTasksDropdown() {
             ) : (
               <div className="space-y-2">
                 {tasks.map((task) => (
-                  <label
+                  <div
                     key={task.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-100 px-3 py-2.5 transition hover:bg-slate-50"
+                    className="flex w-full items-start gap-3 rounded-xl border border-slate-100 px-3 py-2.5 text-left transition hover:bg-slate-50"
                   >
-                    <input
-                      type="checkbox"
-                      checked={task.done}
-                      onChange={() => toggleTask(task.id)}
-                      className="mt-1 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleTask(task.id)}
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                        task.done
+                          ? "border-orange-500 bg-orange-500 text-white"
+                          : "border-slate-300 bg-white"
+                      }`}
+                      aria-label={task.done ? "Mark task open" : "Mark task complete"}
+                    >
+                      {task.done && (
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m4.5 12.75 6 6 9-13.5"
+                          />
+                        </svg>
+                      )}
+                    </button>
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block text-sm font-medium ${
@@ -128,11 +166,29 @@ export default function PageTasksDropdown() {
                       >
                         {task.title}
                       </span>
-                      <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                        {task.section}
+                      <span className="mt-1 flex flex-wrap gap-1.5">
+                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                          {task.section}
+                        </span>
+                        {task.takenBy && (
+                          <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
+                            Taken by {task.takenBy === currentUser ? "you" : task.takenBy}
+                          </span>
+                        )}
                       </span>
                     </span>
-                  </label>
+                    <button
+                      type="button"
+                      onClick={() => toggleTakeTask(task.id)}
+                      className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                        task.takenBy === currentUser
+                          ? "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50"
+                          : "bg-slate-900 text-white hover:bg-slate-800"
+                      }`}
+                    >
+                      {task.takenBy === currentUser ? "Release" : "Take"}
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -153,26 +209,32 @@ export default function PageTasksDropdown() {
               placeholder="Add a task..."
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
             />
-            <div className="mt-2 flex gap-2">
-              <select
-                value={draft.section}
-                onChange={(event) =>
-                  setDraft((currentDraft) => ({
-                    ...currentDraft,
-                    section: event.target.value,
-                  }))
-                }
-                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10"
-              >
-                {sections.map((section) => (
-                  <option
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {sections.map((section) => {
+                const isSelected = draft.section === section;
+
+                return (
+                  <button
                     key={section}
-                    value={section}
+                    type="button"
+                    onClick={() =>
+                      setDraft((currentDraft) => ({
+                        ...currentDraft,
+                        section,
+                      }))
+                    }
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      isSelected
+                        ? "bg-orange-500 text-white"
+                        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-orange-50 hover:text-orange-700"
+                    }`}
                   >
                     {section}
-                  </option>
-                ))}
-              </select>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex justify-end">
               <button
                 type="button"
                 onClick={addTask}

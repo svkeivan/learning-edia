@@ -156,7 +156,7 @@ export default function AssessorGradingPage() {
 
   const decisionLabels: Record<string, { label: string; style: string }> = {
     pass: { label: 'Passed — Assessment Approved', style: 'bg-green-50 border-green-200 text-green-800' },
-    fail: { label: 'Failed — Sent for Re-examination', style: 'bg-amber-50 border-amber-200 text-amber-800' },
+    fail: { label: 'Rejected — Student needs to re-upload', style: 'bg-amber-50 border-amber-200 text-amber-800' },
     'fail-module': { label: 'Failed — Returned to Module', style: 'bg-red-50 border-red-200 text-red-800' },
   };
 
@@ -479,7 +479,7 @@ export default function AssessorGradingPage() {
                       <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                       </svg>
-                      {isRejectedItem ? 'Reject & Resubmit' : 'Reject'}
+                    {isRejectedItem ? 'Reject & Resubmit' : 'Reject — Student needs to re-upload'}
                     </button>
                     <button
                       onClick={() => setPendingAction('fail-module')}
@@ -536,7 +536,7 @@ export default function AssessorGradingPage() {
                   pendingAction === 'pass'
                     ? (isRejectedItem ? 'pass and resubmit' : 'pass')
                     : pendingAction === 'fail'
-                      ? (isRejectedItem ? 'reject and resubmit' : 'reject')
+                      ? (isRejectedItem ? 'reject and resubmit' : 'reject and request a student re-upload')
                       : 'reject and return to module'
                 }</strong> this assessment for <strong>{submission?.student}</strong>?
                 {isRejectedItem && <span className="block mt-1 text-xs text-gray-500">This will resubmit the assessment for IQA review.</span>}
@@ -560,7 +560,7 @@ export default function AssessorGradingPage() {
                 {pendingAction === 'pass'
                   ? (isRejectedItem ? 'Pass & Resubmit' : 'Confirm Pass')
                   : pendingAction === 'fail'
-                    ? (isRejectedItem ? 'Reject & Resubmit' : 'Confirm Reject')
+                    ? (isRejectedItem ? 'Reject & Resubmit' : 'Confirm Reject & Request Re-upload')
                     : 'Confirm Reject & Return'}
               </button>
             </div>

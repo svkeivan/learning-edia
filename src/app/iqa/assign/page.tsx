@@ -260,34 +260,13 @@ export default function IqaAssignPage() {
     });
   };
 
-  const approveSubmissions = (submissionIds: string[]) => {
-    const reviewedAt = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-    submissionIds.forEach((submissionId) => {
-      const sub = gradedSubmissions.find(s => s.id === submissionId);
-      if (!sub?.gradedBy || submissionIdsWithCheck.has(submissionId)) return;
-
-      const cohortObj = findCohortForSubmission(sub.email, sub.assessmentId);
-      const assignedTo = cohortObj
-        ? (getCohortIqaReviewerOverride(cohortObj.id) ?? cohortObj.iqaReviewerId)
-        : undefined;
-
-      addIqaCheck({
-        id: `bulk-approved-${submissionId}-${Date.now()}`,
-        submissionId,
-        assessorId: sub.gradedBy,
-        status: 'Approved',
-        assignedTo,
-        reviewerName: 'Bulk approval',
-        reviewedAt,
-        outcomeType: 'approved',
-        feedback: 'Approved from Assessment Status bulk action.',
-      });
-    });
+  const skipSelected = () => {
+    skipSubmissions([...selected]);
     setSelected(new Set());
     refresh();
   };
 
-  const handleAddToQueue = (submissionId: string) => {
+  const handleReviewDirectly = (submissionId: string) => {
     const sub = gradedSubmissions.find(s => s.id === submissionId);
     if (!sub?.gradedBy || submissionIdsWithCheck.has(submissionId)) return;
 
@@ -296,7 +275,7 @@ export default function IqaAssignPage() {
       ? (getCohortIqaReviewerOverride(cohortObj.id) ?? cohortObj.iqaReviewerId)
       : undefined;
 
-    addIqaCheck({
+    const checkId = addIqaCheck({
       id: `queued-${submissionId}-${Date.now()}`,
       submissionId,
       assessorId: sub.gradedBy,
@@ -308,7 +287,7 @@ export default function IqaAssignPage() {
       next.delete(submissionId);
       return next;
     });
-    refresh();
+    if (checkId) window.location.href = `/iqa/review-queue/${checkId}`;
   };
 
   const handleSkip = (submissionId: string) => {
@@ -421,22 +400,20 @@ export default function IqaAssignPage() {
       {tab === 'not-queue' && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
           <div>
-            <p className="text-sm font-semibold text-orange-900">
-              Bulk actions for Not in Queue
-            </p>
+            <p className="text-sm font-semibold text-orange-900">Bulk skip</p>
             <p className="text-xs text-orange-700">
               {selected.size > 0
                 ? `${selected.size} assessment${selected.size !== 1 ? 's' : ''} selected.`
-                : 'Select assessments below, or use the table checkbox to select all visible items.'}
+                : 'Select assessments below, or use the table checkbox to select all visible items. Review is handled one item at a time.'}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => approveSubmissions([...selected])}
+            onClick={skipSelected}
             disabled={selected.size === 0}
-            className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            Approve selected
+            Skip selected
           </button>
         </div>
       )}
@@ -461,7 +438,7 @@ export default function IqaAssignPage() {
         onPageChange={setAllPage}
         onClearFilters={clearFilters}
         onSwitchTab={setTab}
-        onAddToQueue={handleAddToQueue}
+        onReviewDirectly={handleReviewDirectly}
         onSkip={handleSkip}
         onRequestAssign={() => {}}
       />
