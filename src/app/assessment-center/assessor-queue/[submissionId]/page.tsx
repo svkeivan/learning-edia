@@ -107,9 +107,10 @@ export default function AssessorGradingPage() {
   const [evidenceNotes, setEvidenceNotes] = useState('');
   const [overallComments, setOverallComments] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [decision, setDecision] = useState<'pass' | 'fail' | 'fail-module' | null>(null);
+  type DecisionOutcome = 'pass' | 'fail' | 'fail-reupload' | 'fail-module';
+  const [decision, setDecision] = useState<DecisionOutcome | null>(null);
   const [feedbackExpanded, setFeedbackExpanded] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'pass' | 'fail' | 'fail-module' | null>(null);
+  const [pendingAction, setPendingAction] = useState<DecisionOutcome | null>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
   const [feedbackOverflows, setFeedbackOverflows] = useState(false);
 
@@ -144,7 +145,7 @@ export default function AssessorGradingPage() {
 
   const pdfFile = submission.answers?.find((a): a is Extract<AnswerItem, { type: 'file' }> => a.type === 'file');
 
-  const handleSubmit = (type: 'pass' | 'fail' | 'fail-module') => {
+  const handleSubmit = (type: DecisionOutcome) => {
     setDecision(type);
     setSubmitted(true);
     setPendingAction(null);
@@ -154,9 +155,10 @@ export default function AssessorGradingPage() {
     if (pendingAction) handleSubmit(pendingAction);
   };
 
-  const decisionLabels: Record<string, { label: string; style: string }> = {
+  const decisionLabels: Record<DecisionOutcome, { label: string; style: string }> = {
     pass: { label: 'Passed — Assessment Approved', style: 'bg-green-50 border-green-200 text-green-800' },
-    fail: { label: 'Rejected — Student needs to re-upload', style: 'bg-amber-50 border-amber-200 text-amber-800' },
+    fail: { label: 'Rejected — Assessment not accepted', style: 'bg-rose-50 border-rose-200 text-rose-900' },
+    'fail-reupload': { label: 'Rejected — Student needs to re-upload', style: 'bg-amber-50 border-amber-200 text-amber-800' },
     'fail-module': { label: 'Failed — Returned to Module', style: 'bg-red-50 border-red-200 text-red-800' },
   };
 
@@ -474,12 +476,21 @@ export default function AssessorGradingPage() {
                     </button>
                     <button
                       onClick={() => setPendingAction('fail')}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors shadow-sm"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-colors shadow-sm"
                     >
                       <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                       </svg>
-                    {isRejectedItem ? 'Reject & Resubmit' : 'Reject — Student needs to re-upload'}
+                      {isRejectedItem ? 'Reject & Resubmit' : 'Reject'}
+                    </button>
+                    <button
+                      onClick={() => setPendingAction('fail-reupload')}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-colors shadow-sm"
+                    >
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      {isRejectedItem ? 'Reject (re-upload) & Resubmit' : 'Reject — Student needs to re-upload'}
                     </button>
                     <button
                       onClick={() => setPendingAction('fail-module')}
@@ -521,10 +532,16 @@ export default function AssessorGradingPage() {
             <div className="px-6 py-5 border-b border-gray-100">
               <div className="flex items-center gap-3 mb-2">
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                  pendingAction === 'pass' ? 'bg-green-100' : pendingAction === 'fail' ? 'bg-amber-100' : 'bg-red-100'
+                  pendingAction === 'pass' ? 'bg-green-100'
+                    : pendingAction === 'fail' ? 'bg-rose-100'
+                      : pendingAction === 'fail-reupload' ? 'bg-amber-100'
+                        : 'bg-red-100'
                 }`}>
                   <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className={
-                    pendingAction === 'pass' ? 'text-green-600' : pendingAction === 'fail' ? 'text-amber-600' : 'text-red-600'
+                    pendingAction === 'pass' ? 'text-green-600'
+                      : pendingAction === 'fail' ? 'text-rose-600'
+                        : pendingAction === 'fail-reupload' ? 'text-amber-600'
+                          : 'text-red-600'
                   }>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                   </svg>
@@ -536,10 +553,14 @@ export default function AssessorGradingPage() {
                   pendingAction === 'pass'
                     ? (isRejectedItem ? 'pass and resubmit' : 'pass')
                     : pendingAction === 'fail'
-                      ? (isRejectedItem ? 'reject and resubmit' : 'reject and request a student re-upload')
-                      : 'reject and return to module'
-                }</strong> this assessment for <strong>{submission?.student}</strong>?
-                {isRejectedItem && <span className="block mt-1 text-xs text-gray-500">This will resubmit the assessment for IQA review.</span>}
+                      ? (isRejectedItem ? 'reject and resubmit' : 'reject this assessment')
+                      : pendingAction === 'fail-reupload'
+                        ? (isRejectedItem ? 'reject, require a student re-upload, and resubmit' : 'reject and require the student to re-upload their evidence')
+                        : 'reject and return to module'
+                }</strong> for <strong>{submission?.student}</strong>?
+                {isRejectedItem && (pendingAction === 'pass' || pendingAction === 'fail' || pendingAction === 'fail-reupload') && (
+                  <span className="block mt-1 text-xs text-gray-500">This will resubmit the assessment for IQA review.</span>
+                )}
               </p>
             </div>
             <div className="px-6 py-4 flex items-center justify-end gap-3">
@@ -553,15 +574,18 @@ export default function AssessorGradingPage() {
                 onClick={confirmPendingAction}
                 className={`px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors ${
                   pendingAction === 'pass' ? 'bg-green-600 hover:bg-green-700'
-                    : pendingAction === 'fail' ? 'bg-amber-500 hover:bg-amber-600'
-                      : 'bg-red-600 hover:bg-red-700'
+                    : pendingAction === 'fail' ? 'bg-rose-600 hover:bg-rose-700'
+                      : pendingAction === 'fail-reupload' ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
                 {pendingAction === 'pass'
                   ? (isRejectedItem ? 'Pass & Resubmit' : 'Confirm Pass')
                   : pendingAction === 'fail'
-                    ? (isRejectedItem ? 'Reject & Resubmit' : 'Confirm Reject & Request Re-upload')
-                    : 'Confirm Reject & Return'}
+                    ? (isRejectedItem ? 'Confirm Reject & Resubmit' : 'Confirm Reject')
+                    : pendingAction === 'fail-reupload'
+                      ? (isRejectedItem ? 'Confirm Reject (re-upload) & Resubmit' : 'Confirm Reject & Re-upload')
+                      : 'Confirm Reject & Return'}
               </button>
             </div>
           </div>
