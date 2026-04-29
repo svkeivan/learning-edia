@@ -84,7 +84,7 @@ export default function PageTasksDropdown() {
     <div className="fixed right-6 top-5 z-[60]">
       <button
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => setIsOpen(() => false)}
         className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 focus:outline-none focus:ring-4 focus:ring-orange-500/15"
         aria-expanded={isOpen}
         aria-label="Open task list"
