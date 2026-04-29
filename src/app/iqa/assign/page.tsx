@@ -3,11 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
+  addIqaCheck,
   getIqaChecks,
   getIqaTutors,
   getIqaCategories,
   getSkippedSubmissionIds,
   getCohortIqaReviewerOverride,
+  skipSubmissions,
 } from '@/lib/iqa-data';
 import { submissions, assessments, getStudentPackage, getStudentCohort, findCohortForSubmission, parseSubmitDate } from '@/lib/mock-data';
 
@@ -46,6 +48,7 @@ export default function IqaAssignPage() {
   // Sorting
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   const refresh = useCallback(() => {
@@ -181,8 +184,14 @@ export default function IqaAssignPage() {
   const displayItems = tab === 'all'
     ? filteredItems.slice((allPage - 1) * PAGE_SIZE, allPage * PAGE_SIZE)
     : filteredItems;
+  const selectableIds = useMemo(
+    () => (tab === 'not-queue' ? displayItems.map(item => item.submission.id) : []),
+    [displayItems, tab],
+  );
+  const allSelected = selectableIds.length > 0 && selectableIds.every(id => selected.has(id));
 
   useEffect(() => { setAllPage(1); }, [filterAssessor, filterCategory, filterTrade, filterExam, filterStudent, filterReviewer, filterCohort, filterDateFrom, filterDateTo, tab]);
+  useEffect(() => { setSelected(new Set()); }, [filterAssessor, filterCategory, filterTrade, filterExam, filterStatus, filterStudent, filterReviewer, filterCohort, filterDateFrom, filterDateTo, tab]);
 
   // ── Filters helpers ───────────────────────────────────────────────────────
   const hasActiveFilters = !!(filterAssessor || filterCategory || filterTrade || filterExam || filterStatus || filterStudent || filterReviewer || filterCohort || filterDateFrom || filterDateTo);
@@ -233,6 +242,83 @@ export default function IqaAssignPage() {
   const handleSortClick = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const handleToggleAll = () => {
+    setSelected((current) => {
+      if (allSelected) return new Set();
+      return new Set([...current, ...selectableIds]);
+    });
+  };
+
+  const handleToggleOne = (submissionId: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(submissionId)) next.delete(submissionId);
+      else next.add(submissionId);
+      return next;
+    });
+  };
+
+  const approveSubmissions = (submissionIds: string[]) => {
+    const reviewedAt = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    submissionIds.forEach((submissionId) => {
+      const sub = gradedSubmissions.find(s => s.id === submissionId);
+      if (!sub?.gradedBy || submissionIdsWithCheck.has(submissionId)) return;
+
+      const cohortObj = findCohortForSubmission(sub.email, sub.assessmentId);
+      const assignedTo = cohortObj
+        ? (getCohortIqaReviewerOverride(cohortObj.id) ?? cohortObj.iqaReviewerId)
+        : undefined;
+
+      addIqaCheck({
+        id: `bulk-approved-${submissionId}-${Date.now()}`,
+        submissionId,
+        assessorId: sub.gradedBy,
+        status: 'Approved',
+        assignedTo,
+        reviewerName: 'Bulk approval',
+        reviewedAt,
+        outcomeType: 'approved',
+        feedback: 'Approved from Assessment Status bulk action.',
+      });
+    });
+    setSelected(new Set());
+    refresh();
+  };
+
+  const handleAddToQueue = (submissionId: string) => {
+    const sub = gradedSubmissions.find(s => s.id === submissionId);
+    if (!sub?.gradedBy || submissionIdsWithCheck.has(submissionId)) return;
+
+    const cohortObj = findCohortForSubmission(sub.email, sub.assessmentId);
+    const assignedTo = cohortObj
+      ? (getCohortIqaReviewerOverride(cohortObj.id) ?? cohortObj.iqaReviewerId)
+      : undefined;
+
+    addIqaCheck({
+      id: `queued-${submissionId}-${Date.now()}`,
+      submissionId,
+      assessorId: sub.gradedBy,
+      status: 'Pending',
+      assignedTo,
+    });
+    setSelected((current) => {
+      const next = new Set(current);
+      next.delete(submissionId);
+      return next;
+    });
+    refresh();
+  };
+
+  const handleSkip = (submissionId: string) => {
+    skipSubmissions([submissionId]);
+    setSelected((current) => {
+      const next = new Set(current);
+      next.delete(submissionId);
+      return next;
+    });
+    refresh();
   };
 
   // ── Loading skeleton ──────────────────────────────────────────────────────
@@ -332,12 +418,35 @@ export default function IqaAssignPage() {
         onExport={handleExportCsv}
       />
 
+      {tab === 'not-queue' && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-orange-900">
+              Bulk actions for Not in Queue
+            </p>
+            <p className="text-xs text-orange-700">
+              {selected.size > 0
+                ? `${selected.size} assessment${selected.size !== 1 ? 's' : ''} selected.`
+                : 'Select assessments below, or use the table checkbox to select all visible items.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => approveSubmissions([...selected])}
+            disabled={selected.size === 0}
+            className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            Approve selected
+          </button>
+        </div>
+      )}
+
       {/* Main table */}
       <AssignTable
         tab={tab}
         displayItems={displayItems}
-        selected={new Set()}
-        allSelected={false}
+        selected={selected}
+        allSelected={allSelected}
         sortKey={sortKey}
         sortDir={sortDir}
         allPage={allPage}
@@ -345,15 +454,15 @@ export default function IqaAssignPage() {
         filteredCount={filteredItems.length}
         hasActiveFilters={hasActiveFilters}
         tutors={tutors}
-        readOnly
-        onToggleAll={() => {}}
-        onToggleOne={() => {}}
+        readOnly={tab !== 'not-queue'}
+        onToggleAll={handleToggleAll}
+        onToggleOne={handleToggleOne}
         onSortClick={handleSortClick}
         onPageChange={setAllPage}
         onClearFilters={clearFilters}
         onSwitchTab={setTab}
-        onAddToQueue={() => {}}
-        onSkip={() => {}}
+        onAddToQueue={handleAddToQueue}
+        onSkip={handleSkip}
         onRequestAssign={() => {}}
       />
 

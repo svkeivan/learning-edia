@@ -88,6 +88,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   const [filterStatus, setFilterStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [cohortTab, setCohortTab] = useState<CohortTab>('in-queue');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [cohortCompleteBump, setCohortCompleteBump] = useState(0);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
@@ -177,6 +178,15 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   }, [items, inQueueItems, notInQueueItems, isReviewer, readOnlyCohort, cohortTab, filterExam, filterStatus, search]);
 
   const displayItems = filteredItems;
+  const selectableIds = useMemo(
+    () => (isReviewer && cohortTab === 'not-in-queue' ? displayItems.map(item => item.submission.id) : []),
+    [cohortTab, displayItems, isReviewer],
+  );
+  const allSelected = selectableIds.length > 0 && selectableIds.every(id => selected.has(id));
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [cohortTab, filterExam, filterStatus, search]);
 
   // ── Handlers ──
 
@@ -194,6 +204,56 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
     }
     refresh();
     setToast('Added to IQA queue');
+  };
+
+  const handleToggleAll = () => {
+    setSelected((current) => {
+      if (allSelected) return new Set();
+      return new Set([...current, ...selectableIds]);
+    });
+  };
+
+  const handleToggleOne = (submissionId: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(submissionId)) next.delete(submissionId);
+      else next.add(submissionId);
+      return next;
+    });
+  };
+
+  const handleBulkApprove = () => {
+    const reviewedAt = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    let approvedCount = 0;
+
+    [...selected].forEach((submissionId) => {
+      const sub = submissions.find(s => s.id === submissionId);
+      if (!sub?.gradedBy) return;
+      const existingCheck = checks.find(c => c.submissionId === submissionId);
+      if (existingCheck) return;
+
+      const reviewer = effectiveLeadReviewerId
+        ?? (autoAssignReviewer(sub.gradedBy, tutors.find(t => t.id === sub.gradedBy)?.categoryId) ?? undefined);
+
+      addIqaCheck({
+        id: `cohort-bulk-approved-${submissionId}-${Date.now()}`,
+        submissionId,
+        assessorId: sub.gradedBy,
+        status: 'Approved',
+        assignedTo: reviewer,
+        reviewerName: 'Bulk approval',
+        reviewedAt,
+        outcomeType: 'approved',
+        feedback: 'Approved from cohort bulk action.',
+      });
+      approvedCount += 1;
+    });
+
+    setSelected(new Set());
+    refresh();
+    if (approvedCount > 0) {
+      setToast(`Approved ${approvedCount} assessment${approvedCount !== 1 ? 's' : ''}`);
+    }
   };
 
   const handleReviewFromNotInQueue = (submissionId: string) => {
@@ -498,6 +558,29 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
         )}
       </div>
 
+      {isReviewer && cohortTab === 'not-in-queue' && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-orange-900">
+              Bulk actions for Not in Queue
+            </p>
+            <p className="text-xs text-orange-700">
+              {selected.size > 0
+                ? `${selected.size} assessment${selected.size !== 1 ? 's' : ''} selected in this cohort.`
+                : 'Select cohort assessments below, or use the table checkbox to select all visible items.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleBulkApprove}
+            disabled={selected.size === 0}
+            className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            Approve selected
+          </button>
+        </div>
+      )}
+
       {/* Submissions table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {displayItems.length === 0 ? (
@@ -515,6 +598,17 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
+                  {isReviewer && cohortTab === 'not-in-queue' && (
+                    <th className="py-3 px-4 text-left w-10">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={handleToggleAll}
+                        className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        aria-label="Select all visible cohort assessments"
+                      />
+                    </th>
+                  )}
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Student</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Assessment</th>
                   <th className="py-3 px-4 text-left font-semibold text-xs text-gray-500 uppercase tracking-wide">Result</th>
@@ -539,8 +633,20 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
                     <tr
                       key={sub.id}
                       onClick={rowClickable ? () => { window.location.href = `/iqa/review-queue/${check!.id}`; } : undefined}
-                      className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${rowClickable ? 'cursor-pointer' : ''}`}
+                      className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${rowClickable ? 'cursor-pointer' : ''} ${selected.has(sub.id) ? 'bg-orange-50/40' : ''}`}
                     >
+                      {isReviewer && cohortTab === 'not-in-queue' && (
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(sub.id)}
+                            onChange={() => handleToggleOne(sub.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                            aria-label={`Select ${sub.student}`}
+                          />
+                        </td>
+                      )}
 
                       <td className="py-3 px-4">
                         <p className="font-medium text-gray-900">{sub.student}</p>
