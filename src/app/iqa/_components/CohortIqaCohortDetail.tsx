@@ -70,7 +70,7 @@ function ProgressRing({ percent }: { percent: number }) {
 
 export type CohortIqaCohortDetailVariant = 'sampling' | 'review-queue' | 'assessor-queue';
 
-type CohortTab = 'in-queue' | 'not-in-queue';
+type CohortTab = 'in-queue' | 'not-in-queue' | 'skipped';
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -160,12 +160,13 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
   // Items split by queue membership (for reviewer tabs)
   const inQueueItems = useMemo(() => items.filter(i => !!i.check), [items]);
   const notInQueueItems = useMemo(() => items.filter(i => !i.check && !i.isSkipped), [items]);
+  const skippedItems = useMemo(() => items.filter(i => !i.check && i.isSkipped), [items]);
 
   // Filtered items: reviewer uses tabs, sampling uses dropdown
   const filteredItems = useMemo(() => {
     let base: CohortSubmission[];
     if (isReviewer) {
-      base = cohortTab === 'in-queue' ? inQueueItems : notInQueueItems;
+      base = cohortTab === 'in-queue' ? inQueueItems : cohortTab === 'skipped' ? skippedItems : notInQueueItems;
     } else {
       base = items;
     }
@@ -181,7 +182,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
       }
       return true;
     });
-  }, [items, inQueueItems, notInQueueItems, isReviewer, readOnlyCohort, cohortTab, filterExam, filterStatus, search]);
+  }, [items, inQueueItems, notInQueueItems, skippedItems, isReviewer, readOnlyCohort, cohortTab, filterExam, filterStatus, search]);
 
   const displayItems = filteredItems;
   const selectableIds = useMemo(
@@ -469,6 +470,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
           {([
             { key: 'in-queue' as const, label: 'In Queue', count: stats.inQueue },
             { key: 'not-in-queue' as const, label: 'Not in Queue', count: stats.notInQueue },
+            { key: 'skipped' as const, label: 'Skipped', count: skippedItems.length },
           ]).map(tab => (
             <button
               key={tab.key}
@@ -570,9 +572,11 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
             <p className="text-gray-500 text-sm">
               {isReviewer && cohortTab === 'in-queue'
                 ? 'No assessments in queue. Switch to the "Not in Queue" tab to add some.'
-                : isReviewer
-                  ? 'All assessments are in the queue.'
-                  : 'No submissions match your filters.'}
+                : isReviewer && cohortTab === 'skipped'
+                  ? 'No skipped assessments.'
+                  : isReviewer
+                    ? 'All assessments are in the queue.'
+                    : 'No submissions match your filters.'}
             </p>
           </div>
         ) : (
@@ -711,7 +715,7 @@ export function CohortIqaCohortDetail({ variant }: { variant: CohortIqaCohortDet
 
         <div className="px-5 py-3 border-t border-gray-100">
           <p className="text-xs text-gray-400">
-            Showing {displayItems.length} of {isReviewer ? (cohortTab === 'in-queue' ? inQueueItems.length : notInQueueItems.length) : items.length} submission{items.length !== 1 ? 's' : ''}
+            Showing {displayItems.length} of {isReviewer ? (cohortTab === 'in-queue' ? inQueueItems.length : cohortTab === 'skipped' ? skippedItems.length : notInQueueItems.length) : items.length} submission{items.length !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
