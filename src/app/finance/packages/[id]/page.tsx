@@ -3,6 +3,7 @@
 import { notFound, useParams, useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import { financePackages, FinanceStage, PackageStatus } from '@/lib/finance-data';
+import { courseShareOfPackage, fullPriceFromCourseSum, scaleStagesToCourseSum } from './components/utils';
 import { PackageCockpitHeader } from './components/package-cockpit-header';
 import { RevenueTimeline } from './components/revenue-timeline';
 import { StageList } from './components/stage-list';
@@ -47,21 +48,28 @@ export default function PackageCockpitPage() {
     });
   }, []);
 
-  const updateTotalPrice = useCallback((newTotal: number) => {
+  const updateTotalPrice = useCallback(
+    (newTotal: number) => {
+      setStages(prev => {
+        const targetCourseSum = Math.round(newTotal * courseShareOfPackage(digitalAccessPct));
+        const scaled = scaleStagesToCourseSum(prev, targetCourseSum);
+        return recalcAllRevenue(scaled);
+      });
+    },
+    [digitalAccessPct],
+  );
+
+  const handleDigitalAccessPct = useCallback((newD: number) => {
+    const prevDigital = digitalAccessPct;
+    setDigitalAccessPct(newD);
     setStages(prev => {
-      const revTotal = prev.reduce((s, st) => s + st.revenueRecognition, 0);
-
-      if (revTotal > 0) {
-        return prev.map(s => ({
-          ...s,
-          price: Math.round((newTotal * s.revenueRecognition) / revTotal),
-        }));
-      }
-
-      const even = Math.round(newTotal / prev.length);
-      return prev.map(s => ({ ...s, price: even }));
+      const courseSum = prev.reduce((s, st) => s + st.price, 0);
+      const fullPrice = fullPriceFromCourseSum(courseSum, prevDigital);
+      const targetCourseSum = Math.round(fullPrice * courseShareOfPackage(newD));
+      const scaled = scaleStagesToCourseSum(prev, targetCourseSum);
+      return recalcAllRevenue(scaled);
     });
-  }, []);
+  }, [digitalAccessPct]);
 
   const toggleSellable = useCallback((stageId: string, isSellable: boolean) => {
     setStages(prev => prev.map(s => (s.id === stageId ? { ...s, isSellable } : s)));
@@ -87,7 +95,7 @@ export default function PackageCockpitPage() {
   const totalActivities = stages.flatMap(s => s.activities).length;
   const totalRefund = stages.reduce((s, st) => s + st.exposedRefund, 0);
   const sumOfStagePrices = stages.reduce((s, st) => s + st.price, 0);
-  const computedTotalPrice = sumOfStagePrices;
+  const computedTotalPrice = fullPriceFromCourseSum(sumOfStagePrices, digitalAccessPct);
   const pricedStages = stages.filter(s => s.price > 0).length;
   const allPriced = pricedStages === stages.length;
   const pricingPct = stages.length > 0 ? Math.round((pricedStages / stages.length) * 100) : 0;
@@ -134,7 +142,7 @@ export default function PackageCockpitPage() {
             pkg={pkg}
             stages={stages}
             digitalAccessPct={digitalAccessPct}
-            onUpdateDigitalAccessPct={setDigitalAccessPct}
+            onUpdateDigitalAccessPct={handleDigitalAccessPct}
           />
         </div>
       </div>

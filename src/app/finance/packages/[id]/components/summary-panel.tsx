@@ -3,7 +3,7 @@
 import { ActivityType, FinancePackage, FinanceStage } from '@/lib/finance-data';
 import { activityTypeStyle } from './constants';
 import { EditableField } from './editable-field';
-import { countActivitiesByType, fmtPrice } from './utils';
+import { countActivitiesByType, fmtPrice, fullPriceFromCourseSum } from './utils';
 
 export function SummaryPanel({
   pkg,
@@ -20,7 +20,8 @@ export function SummaryPanel({
   const revOk = revTotal === 100;
   const totalRefund = stages.reduce((s, st) => s + st.exposedRefund, 0);
   const sumOfStagePrices = stages.reduce((s, st) => s + st.price, 0);
-  const digitalAssetValue = Math.round((sumOfStagePrices * digitalAccessPct) / 100);
+  const fullPackagePrice = fullPriceFromCourseSum(sumOfStagePrices, digitalAccessPct);
+  const digitalAssetValue = Math.round((fullPackagePrice * digitalAccessPct) / 100);
 
   return (
     <div className="space-y-3">
@@ -58,7 +59,14 @@ export function SummaryPanel({
         <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Price Breakdown</p>
 
         <div className="flex justify-between items-center py-2 border-b border-gray-100">
-          <span className="text-xs text-gray-500">Package price (modules)</span>
+          <span className="text-xs text-gray-500">Full package price</span>
+          <span className="text-xs font-semibold tabular-nums text-gray-800">{fmtPrice(fullPackagePrice)}</span>
+        </div>
+
+        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+          <span className="text-xs text-gray-500">
+            Course delivery ({100 - digitalAccessPct}% of package)
+          </span>
           <span className="text-xs font-semibold tabular-nums text-gray-800">{fmtPrice(sumOfStagePrices)}</span>
         </div>
 
@@ -66,7 +74,7 @@ export function SummaryPanel({
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-gray-500">Digital assets share</span>
             <p className="text-[10px] text-gray-400 leading-snug">
-              For reporting — not included in package price.
+              Percent of full package price. Course prices rescale so delivery totals the remainder.
             </p>
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -79,7 +87,7 @@ export function SummaryPanel({
                   onConfirm={onUpdateDigitalAccessPct}
                   size="sm"
                 />
-                <span className="text-[10px] text-gray-400 shrink-0">of delivery</span>
+                <span className="text-[10px] text-gray-400 shrink-0">of package</span>
               </div>
               <span className="text-sm font-semibold tabular-nums text-blue-600 shrink-0">{fmtPrice(digitalAssetValue)}</span>
             </div>

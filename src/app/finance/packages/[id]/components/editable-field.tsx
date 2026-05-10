@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { IcCheck, IcX } from './icons';
 
-type EditState = 'idle' | 'editing' | 'confirming';
+type EditState = 'idle' | 'editing';
 
 export function EditableField({
   value,
@@ -34,22 +34,16 @@ export function EditableField({
     setTimeout(() => inputRef.current?.select(), 0);
   };
 
-  const requestConfirm = () => {
+  const commitEdit = () => {
     const n = parseFloat(draft);
     if (isNaN(n) || n < min || n > max) {
       setDraft(String(value));
       setState('idle');
       return;
     }
-    if (n === value) {
-      setState('idle');
-      return;
+    if (n !== value) {
+      onConfirm(n);
     }
-    setState('confirming');
-  };
-
-  const applyChange = () => {
-    onConfirm(parseFloat(draft));
     setState('idle');
   };
   const cancel = () => {
@@ -108,7 +102,7 @@ export function EditableField({
           step={step}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter') requestConfirm();
+            if (e.key === 'Enter') commitEdit();
             if (e.key === 'Escape') cancel();
           }}
           autoFocus
@@ -119,7 +113,7 @@ export function EditableField({
         {suffix && <span className="text-xs font-medium text-gray-500">{suffix}</span>}
         <button
           type="button"
-          onClick={requestConfirm}
+          onClick={commitEdit}
           className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
         >
           <IcCheck /> Apply
@@ -135,77 +129,5 @@ export function EditableField({
     );
   }
 
-  const newVal = parseFloat(draft);
-  return (
-    <span className="relative inline-block">
-      <span className={`${pillBase} bg-amber-50 border-amber-300 text-amber-700 pointer-events-none`}>
-        {prefix && <span className="font-normal text-amber-500">{prefix}</span>}
-        <span>
-          {value}
-          {suffix}
-        </span>
-        <svg
-          width={size === 'sm' ? 11 : size === 'lg' ? 16 : 13}
-          height={size === 'sm' ? 11 : size === 'lg' ? 16 : 13}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2.5}
-          className="text-amber-400 shrink-0"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"
-          />
-        </svg>
-      </span>
-
-      <span className="absolute bottom-full left-0 mb-2.5 z-50 flex flex-col items-start" style={{ minWidth: '220px' }}>
-        <span className="bg-gray-900 rounded-xl px-4 py-3 shadow-2xl flex flex-col gap-2.5 w-full">
-          <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Confirm change</span>
-          <span className="flex items-center gap-2">
-            <span className="text-sm text-gray-400 line-through tabular-nums">
-              {prefix}
-              {value}
-              {suffix}
-            </span>
-            <svg
-              width="14"
-              height="14"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              className="text-orange-400 shrink-0"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-            </svg>
-            <span className="text-base font-bold text-white tabular-nums">
-              {prefix}
-              {newVal}
-              {suffix}
-            </span>
-          </span>
-          <span className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={applyChange}
-              className="flex-1 bg-orange-500 hover:bg-orange-400 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
-            >
-              I understand the impact
-            </button>
-            <button
-              type="button"
-              onClick={cancel}
-              className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-          </span>
-        </span>
-        <span className="ml-4 w-3 h-3 bg-gray-900 rotate-45 -mt-1.5 shrink-0" />
-      </span>
-    </span>
-  );
+  return null;
 }
